@@ -97,26 +97,27 @@ public:
 //                total_diffs += abs(t_ptrs[1][x+1] - t_ptrs[1][x]); //8
 
 
-//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
-//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
-//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
-//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
-//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
-//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
-//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //7
-//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //8
+                total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
+                total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
+                total_diffs += (t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
+                total_diffs += (t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
+                total_diffs += (t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
+                total_diffs += (t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
+                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //7
+                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //8
 
 
-                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[0][x+1], 0); //1
-                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[0][x+2], 0); //2
-                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[1][x+3], 0); //3
-                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[2][x+3], 0); //4
-                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[3][x+2], 0); //5
-                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[3][x+1], 0); //6
-                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[2][x], 0); //7
-                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[1][x], 0); //8
+//                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[0][x+1], 0); //1
+//                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[0][x+2], 0); //2
+//                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[1][x+3], 0); //3
+//                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[2][x+3], 0); //4
+//                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[3][x+2], 0); //5
+//                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[3][x+1], 0); //6
+//                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[2][x], 0); //7
+//                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[1][x], 0); //8
 
-//                total_diffs = std::max(total_diffs,0);
+
+                total_diffs = std::max(total_diffs,0);
 
                 write_p[x] = (uchar)(total_diffs/3); // divide to fit into 8bit char
 
