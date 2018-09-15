@@ -41,10 +41,6 @@
             </intent-filter>
         </activity>
         <activity android:name=".OpenCVCamera" />
-        <activity
-            android:name=".EdgeDetection"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar.FullScreen" />
         <activity android:name=".SignFinder"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar.FullScreen"/>
