@@ -19,12 +19,10 @@ import java.net.URL;
 public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
     private static final String TAG = "GetContentTask";
-//
-//    private TextView textView;
+
     private MainActivity activity;
 
     public GetContentTask(MainActivity activity){
-//        this.textView = textView;
         this.activity = activity;
     }
 
@@ -95,5 +93,7 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
         Log.d(TAG, "onPostExecute: " + input);
 
         Toast.makeText(activity, "max speed = " + input, Toast.LENGTH_SHORT).show();
+
+        activity = null;
     }
 }
