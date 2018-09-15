@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 #link in open cv
-set(pathToOpenCV /Library/OpenCV-android-sdk/sdk/native)
+set(pathToOpenCV D:/Study/Weimar\ BU/MIS/OpenCV-android-sdk/sdk/native)
 include_directories(${pathToOpenCV}/jni/include)
 
 # Creates and names a library, sets it as either STATIC
@@ -29,7 +29,7 @@ add_library(sign-finder-lib SHARED src/main/cpp/sign-lib.cpp)
 
 # add the OpenCV library
 add_library( lib_opencv SHARED IMPORTED )
-set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION /Users/garyrendle/Documents/5_PROGRAMMING/Android/MIS_cpp_test/app/src/main/jniLibs/${ANDROID_ABI}/libopencv_java3.so)
+set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION D:/Study/Weimar\ BU/MIS/MIS_cpp_algorithm_test/app/src/main/jniLibs/${ANDROID_ABI}/libopencv_java3.so)
  
 
 # Searches for a specified prebuilt library and stores the path as a
