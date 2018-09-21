@@ -54,6 +54,48 @@ public:
         }
     }
 
+    static void compareResponses(cv::Mat &downsampled_img){
+
+        cv::Mat hard_coded_mat = downsampled_img.clone();
+        cv::Mat paramed_mat = downsampled_img.clone();
+
+        responseFromDownsampledImage(hard_coded_mat);
+        responseFromDownsampledImage(paramed_mat, 5, 1);
+
+        int errors = 0;
+
+        //check each pixel for differences
+        int nRows = downsampled_img.rows;
+        int nCols = downsampled_img.cols;
+        uchar* p_p;
+        uchar* hc_p;
+        for( int y = 0; y < nRows; ++y)
+        {
+            //get ptr to this row in return mats
+            hc_p = hard_coded_mat.ptr<uchar>(y);
+            p_p = paramed_mat.ptr<uchar>(y);
+
+            for (int x = 0; x < nCols; ++x)
+            {
+                int ppv = p_p[x];
+                int hcv = hc_p[x];
+
+
+//                __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "%d -- %d", ppv, hcv);
+
+                if (ppv != hcv){
+                    errors++;
+                }
+            }
+        }
+
+
+        downsampled_img = hard_coded_mat.clone();
+
+        __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "match errors = %d", errors);
+
+    }
+
     //create a likelihood of sign shape from downsampled image
     static void responseFromDownsampledImage(cv::Mat &downsampled_img){
 
@@ -63,18 +105,17 @@ public:
         //create response holder mat at size of downsampled mat
         cv::Mat response = cv::Mat(downsampled_img.rows, downsampled_img.cols, downsampled_img.type());
 
-        const int templateSize = 4; //width and height of template in downsampled pixels (blocks). assume square.
-        const int nRows = downsampled_img.rows - templateSize;
-        const int nCols = downsampled_img.cols - templateSize;
+        const int tempSize = 5; //width and height of template in downsampled pixels (blocks). assume square.
+        const int nRows = downsampled_img.rows - tempSize;
+        const int nCols = downsampled_img.cols - tempSize;
 
         //at each row, build an array of pointers to the required blocks
-        uchar* t_ptrs[templateSize];
+        uchar* t_ptrs[tempSize];
         uchar* write_p;
-        int max_response = 0;
         for (int y = 0; y < nRows; ++y) {
 
             //build array of read pointers
-            for (int p_row = 0; p_row < templateSize; ++p_row) {
+            for (int p_row = 0; p_row < tempSize; ++p_row) {
                 t_ptrs[p_row] = downsampled_img.ptr<uchar>(y + p_row);
             }
             //create write pointer
@@ -86,48 +127,129 @@ public:
                 //collect response from all rows
                 int total_diffs = 0;
 
-                //pairwise comparisons
-//                total_diffs += abs(t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
-//                total_diffs += abs(t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
-//                total_diffs += abs(t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
-//                total_diffs += abs(t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
-//                total_diffs += abs(t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
-//                total_diffs += abs(t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
-//                total_diffs += abs(t_ptrs[2][x+1] - t_ptrs[2][x]); //7
-//                total_diffs += abs(t_ptrs[1][x+1] - t_ptrs[1][x]); //8
+//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
+//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
+//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
+//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
+//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
+//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
+//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //7
+//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //8
 
-
+                //test for 5,1 template
                 total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
                 total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
-                total_diffs += (t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
-                total_diffs += (t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
-                total_diffs += (t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
-                total_diffs += (t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
-                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //7
-                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //8
+                total_diffs += (t_ptrs[1][x+3] - t_ptrs[0][x+3]); //3
 
+                total_diffs += (t_ptrs[1][x+3] - t_ptrs[1][x+4]); //
+                total_diffs += (t_ptrs[2][x+3] - t_ptrs[2][x+4]); //
+                total_diffs += (t_ptrs[3][x+3] - t_ptrs[3][x+4]); //
 
-//                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[0][x+1], 0); //1
-//                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[0][x+2], 0); //2
-//                total_diffs += std::max(t_ptrs[1][x+2] - t_ptrs[1][x+3], 0); //3
-//                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[2][x+3], 0); //4
-//                total_diffs += std::max(t_ptrs[2][x+2] - t_ptrs[3][x+2], 0); //5
-//                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[3][x+1], 0); //6
-//                total_diffs += std::max(t_ptrs[2][x+1] - t_ptrs[2][x], 0); //7
-//                total_diffs += std::max(t_ptrs[1][x+1] - t_ptrs[1][x], 0); //8
+                total_diffs += (t_ptrs[3][x+3] - t_ptrs[4][x+3]); //
+                total_diffs += (t_ptrs[3][x+2] - t_ptrs[4][x+2]); //
+                total_diffs += (t_ptrs[3][x+1] - t_ptrs[4][x+1]); //
+
+                total_diffs += (t_ptrs[3][x+1] - t_ptrs[3][x]); //
+                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //
+                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //
 
 
                 total_diffs = std::max(total_diffs,0);
 
                 write_p[x] = (uchar)(total_diffs/3); // divide to fit into 8bit char
 
-                if (total_diffs > max_response){max_response = total_diffs;}
 
             }
 
 //            __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "max response = %d", max_response);
 
+        }
 
+        //transfer response back into downsampled image
+        downsampled_img = response.clone();
+
+    }
+
+    //create a likelihood of sign shape from downsampled image
+    //parametrised size
+    static void responseFromDownsampledImage(cv::Mat &downsampled_img, int tempSize, int boxSize){
+
+        //create response holder mat at size of downsampled mat
+        cv::Mat response = cv::Mat(downsampled_img.rows, downsampled_img.cols, downsampled_img.type());
+
+        const int nRows = downsampled_img.rows - tempSize;
+        const int nCols = downsampled_img.cols - tempSize;
+
+        //at each row, build an array of pointers to the required blocks
+        uchar* t_ptrs[tempSize];
+        uchar* write_p;
+
+        int b_sum = 0, w_sum = 0;
+
+        //for each row
+        for (int y = 0; y < nRows; ++y) {
+
+            //build array of read pointers
+            for (int p_row = 0; p_row < tempSize; ++p_row) {
+                t_ptrs[p_row] = downsampled_img.ptr<uchar>(y + p_row);
+            }
+            //create write pointer
+            write_p = response.ptr<uchar>(y);
+
+            //iterate along the row and perform calculation at each column position to get response
+            for (int x = 0; x < nCols; ++x) {
+
+                //collect response from all rows
+                int total_diffs = 0;
+
+
+                //for each row
+                for (int t_rows = boxSize; t_rows < (tempSize - boxSize); ++t_rows) {
+                    //left side
+                    b_sum = 0, w_sum = 0;
+                    for (int px = 0; px < boxSize; ++px) { //for each col in row
+                        b_sum += t_ptrs[t_rows][x+px];
+                        w_sum += t_ptrs[t_rows][x+boxSize+px];
+                        total_diffs += (w_sum-b_sum);
+                    }
+                    //right side
+                    b_sum = 0, w_sum = 0;
+                    for (int px = 0; px < boxSize; ++px){
+                        b_sum += t_ptrs[t_rows][(x+tempSize)-(1+px)];
+                        w_sum += t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)];
+                        total_diffs += (w_sum-b_sum);
+                    }
+
+                }
+                //for each column
+                for (int col = boxSize; col < (tempSize-boxSize); ++col) {
+                    //top
+                    b_sum = 0, w_sum = 0;
+                    for (int px = 0; px < boxSize; ++px) {
+                        b_sum += t_ptrs[px][x+col];
+                        w_sum += t_ptrs[px+boxSize][x+col];
+                        total_diffs += (w_sum-b_sum);
+                    }
+                    //bottom
+                    b_sum = 0, w_sum = 0;
+                    for (int px = 0; px < boxSize; ++px){
+                        b_sum += t_ptrs[tempSize-(1+px)][x+col];
+                        w_sum += t_ptrs[tempSize-(1+px+boxSize)][x+col];
+                        total_diffs += (w_sum-b_sum);
+                    }
+
+                }
+
+
+                //TODO normalise for number of comparisons?
+
+
+                total_diffs = std::max(total_diffs,0);
+
+                write_p[x] = (uchar)(total_diffs/3); // divide to fit into 8bit char
+
+
+            }
 
         }
 
@@ -177,113 +299,69 @@ public:
         }
     }
 
-    //fills the response matrix
-    static void rectanglePatternMatching_integralimg(cv::Mat* responseDest,
-                                                     cv::Mat* input_integ_img) {
-
-        // accept only single channel input
-        CV_Assert(responseDest->channels() == 1);
-
-        //for each position in matrix calculate response
-        //TODO - border handling? for now only calc when template is in image range
-
-        int max_response = 0;
-        //access each element of return array - within range
-        int nRows = responseDest->rows - templateSize;
-        int nCols = responseDest->cols - templateSize;
-        uchar* p;
-        for( int y = 0; y < nRows; ++y)
-        {
-            //get ptr to this row
-            p = responseDest->ptr<uchar>(y);
-            for (int x = 0; x < nCols; ++x)
-            {
-                //calculate response at each part - cast to 8 bit
-                int response = getResponseAt(x,y,input_integ_img);
-                if (response > max_response) {max_response = response;}
-                p[x] = (uchar)(response / 1000);//hard coded scaling - only for visualisation purposes
-            }
-        }
-
-    }
+//    //fills the response matrix
+//    static void rectanglePatternMatching_integralimg(cv::Mat* responseDest,
+//                                                     cv::Mat* input_integ_img) {
+//
+//        // accept only single channel input
+//        CV_Assert(responseDest->channels() == 1);
+//
+//        //for each position in matrix calculate response
+//        //TODO - border handling? for now only calc when template is in image range
+//
+//        int max_response = 0;
+//        //access each element of return array - within range
+//        int nRows = responseDest->rows - templateSize;
+//        int nCols = responseDest->cols - templateSize;
+//        uchar* p;
+//        for( int y = 0; y < nRows; ++y)
+//        {
+//            //get ptr to this row
+//            p = responseDest->ptr<uchar>(y);
+//            for (int x = 0; x < nCols; ++x)
+//            {
+//                //calculate response at each part - cast to 8 bit
+//                int response = getResponseAt(x,y,input_integ_img);
+//                if (response > max_response) {max_response = response;}
+//                p[x] = (uchar)(response / 1000);//hard coded scaling - only for visualisation purposes
+//            }
+//        }
+//
+//    }
 
 private:
     static const int templateSize = 50;
 
-    //calculates the total differences between pairs of regions
-    //where top let of template is given by x,y
-     static int getResponseAt(int x, int y, cv::Mat* input_integ_img) {
-
-        int totalDiffs = 0, bSum = 0, wSum = 0;
-
-
-        //hard coding of template - means no template has to be passed in to JNI call
-//        wSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-
-//        //1
-//        wSum = getSumInRect(new cv::Rect(x + (templateSize / 4), y + (templateSize / 8), templateSize/2, templateSize/8),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x + (templateSize / 4), y, templateSize/2, templateSize/8),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
+//    //calculates the total differences between pairs of regions
+//    //where top let of template is given by x,y
+//     static int getResponseAt(int x, int y, cv::Mat* input_integ_img) {
 //
-//        //2
-//        wSum = getSumInRect(new cv::Rect(x + (templateSize * 0.75),y + (templateSize / 4), templateSize / 8, templateSize / 2),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x + (templateSize * 0.875),y + (templateSize / 4), templateSize / 8, templateSize / 2), input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
+//        int totalDiffs = 0, bSum = 0, wSum = 0;
 //
-//        //3
-//        wSum = getSumInRect(new cv::Rect(x + (templateSize / 4),y + (templateSize * 0.75), templateSize / 2, templateSize / 8),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x + (templateSize / 4),y + (templateSize * 0.875), templateSize / 2, templateSize / 8),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
 //
-//        //4
-//        wSum = getSumInRect(new cv::Rect(x +(templateSize/8),y + (templateSize / 4), templateSize / 8, templateSize / 2),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y + (templateSize / 4), templateSize / 8, templateSize / 2),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
-
-//        //5
-//        wSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
+//        //simplified single pair: W - B
+////        W
+//        totalDiffs += getSumInRect(new cv::Rect(x + (templateSize/2),y,templateSize/2, templateSize),  input_integ_img);
+//        //B
+//        totalDiffs -= getSumInRect(new cv::Rect(x,y,templateSize/2, templateSize),  input_integ_img);
+//        totalDiffs = abs(totalDiffs);
 //
-//        //6
-//        wSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
+////        __android_log_print(ANDROID_LOG_ERROR, "SEARCH FOR THIS TAG", "totalDiffs + %d", abs(totalDiffs));
 //
-//        //7
-//        wSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
-//
-//        //8
-//        wSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        bSum = getSumInRect(new cv::Rect(x,y, templateSize, templateSize),  input_integ_img);
-//        totalDiffs += abs(wSum - bSum);
-
-        //simplified single pair: W - B
-//        W
-        totalDiffs += getSumInRect(new cv::Rect(x + (templateSize/2),y,templateSize/2, templateSize),  input_integ_img);
-        //B
-        totalDiffs -= getSumInRect(new cv::Rect(x,y,templateSize/2, templateSize),  input_integ_img);
-        totalDiffs = abs(totalDiffs);
-
-//        __android_log_print(ANDROID_LOG_ERROR, "SEARCH FOR THIS TAG", "totalDiffs + %d", abs(totalDiffs));
-
-        return totalDiffs;
-    }
+//        return totalDiffs;
+//    }
 
     //returns sum of pixel intensities within the given rectangle,
     // using an integral image which it takes as an argument
-    static int getSumInRect(cv::Rect *r, cv::Mat* input_integ_img){
-
-        //use int as type because integ img is type 4: 32 bit int
-        int a = input_integ_img->at<int>(r->y, r->x);
-        int b = input_integ_img->at<int>(r->y, r->x+r->width);
-        int c = input_integ_img->at<int>(r->y + r->height, r->x);
-        int d = input_integ_img->at<int>(r->y + r->height, r->x+r->width);
-        return (a + d - b - c);
-    }
+//    static int getSumInRect(cv::Rect *r, cv::Mat* input_integ_img){
+//
+//        //use int as type because integ img is type 4: 32 bit int
+//        int a = input_integ_img->at<int>(r->y, r->x);
+//        int b = input_integ_img->at<int>(r->y, r->x+r->width);
+//        int c = input_integ_img->at<int>(r->y + r->height, r->x);
+//        int d = input_integ_img->at<int>(r->y + r->height, r->x+r->width);
+//        return (a + d - b - c);
+//    }
 
 
 
@@ -310,7 +388,8 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_findSigns(
     //downsampling method
     cv::Mat downsampled_img = input;
     YTemplateMatcher::downsample(&input, downsampled_img,4);
-    YTemplateMatcher::responseFromDownsampledImage(downsampled_img);
+//    YTemplateMatcher::responseFromDownsampledImage(downsampled_img);
+//    YTemplateMatcher::compareResponses(downsampled_img);
     std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img, 4, 4);
     YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
     YTemplateMatcher::drawRects(input, rects);
