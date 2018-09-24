@@ -33,6 +33,17 @@ public:
         output = downsampled_img;
     }
 
+    //increases contrast so that darkest image pixel = 0 and brihghtest = 255
+    static void stretch_contrast(cv::Mat& input_image){
+
+        //find min and max
+        double min, max;
+        cv::minMaxLoc(input_image, &min, &max);
+        input_image += (input_image, -min);
+        input_image = input_image * (255.0/(max-min));
+
+    }
+
     //transfer downsampled data back to full size mat
     static void displayDownsampledImg(cv::Mat* responseDest,
                                  cv::Mat &downsampled_img){
@@ -54,125 +65,9 @@ public:
         }
     }
 
-    static void compareResponses(cv::Mat &downsampled_img){
-
-        cv::Mat hard_coded_mat = downsampled_img.clone();
-        cv::Mat paramed_mat = downsampled_img.clone();
-
-        responseFromDownsampledImage(hard_coded_mat);
-        responseFromDownsampledImage(paramed_mat, 5, 1);
-
-        int errors = 0;
-
-        //check each pixel for differences
-        int nRows = downsampled_img.rows;
-        int nCols = downsampled_img.cols;
-        uchar* p_p;
-        uchar* hc_p;
-        for( int y = 0; y < nRows; ++y)
-        {
-            //get ptr to this row in return mats
-            hc_p = hard_coded_mat.ptr<uchar>(y);
-            p_p = paramed_mat.ptr<uchar>(y);
-
-            for (int x = 0; x < nCols; ++x)
-            {
-                int ppv = p_p[x];
-                int hcv = hc_p[x];
-
-
-//                __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "%d -- %d", ppv, hcv);
-
-                if (ppv != hcv){
-                    errors++;
-                }
-            }
-        }
-
-
-        downsampled_img = hard_coded_mat.clone();
-
-        __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "match errors = %d", errors);
-
-    }
-
-    //create a likelihood of sign shape from downsampled image
-    static void responseFromDownsampledImage(cv::Mat &downsampled_img){
-
-        // accept only 8 bit single channel input
-        CV_Assert(downsampled_img.type() == 0);
-
-        //create response holder mat at size of downsampled mat
-        cv::Mat response = cv::Mat(downsampled_img.rows, downsampled_img.cols, downsampled_img.type());
-
-        const int tempSize = 5; //width and height of template in downsampled pixels (blocks). assume square.
-        const int nRows = downsampled_img.rows - tempSize;
-        const int nCols = downsampled_img.cols - tempSize;
-
-        //at each row, build an array of pointers to the required blocks
-        uchar* t_ptrs[tempSize];
-        uchar* write_p;
-        for (int y = 0; y < nRows; ++y) {
-
-            //build array of read pointers
-            for (int p_row = 0; p_row < tempSize; ++p_row) {
-                t_ptrs[p_row] = downsampled_img.ptr<uchar>(y + p_row);
-            }
-            //create write pointer
-            write_p = response.ptr<uchar>(y);
-
-            //iterate along the row and perform calculation at each column position to get response
-            for (int x = 0; x < nCols; ++x) {
-
-                //collect response from all rows
-                int total_diffs = 0;
-
-//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
-//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
-//                total_diffs += (t_ptrs[1][x+2] - t_ptrs[1][x+3]); //3
-//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[2][x+3]); //4
-//                total_diffs += (t_ptrs[2][x+2] - t_ptrs[3][x+2]); //5
-//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[3][x+1]); //6
-//                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //7
-//                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //8
-
-                //test for 5,1 template
-                total_diffs += (t_ptrs[1][x+1] - t_ptrs[0][x+1]); //1
-                total_diffs += (t_ptrs[1][x+2] - t_ptrs[0][x+2]); //2
-                total_diffs += (t_ptrs[1][x+3] - t_ptrs[0][x+3]); //3
-
-                total_diffs += (t_ptrs[1][x+3] - t_ptrs[1][x+4]); //
-                total_diffs += (t_ptrs[2][x+3] - t_ptrs[2][x+4]); //
-                total_diffs += (t_ptrs[3][x+3] - t_ptrs[3][x+4]); //
-
-                total_diffs += (t_ptrs[3][x+3] - t_ptrs[4][x+3]); //
-                total_diffs += (t_ptrs[3][x+2] - t_ptrs[4][x+2]); //
-                total_diffs += (t_ptrs[3][x+1] - t_ptrs[4][x+1]); //
-
-                total_diffs += (t_ptrs[3][x+1] - t_ptrs[3][x]); //
-                total_diffs += (t_ptrs[2][x+1] - t_ptrs[2][x]); //
-                total_diffs += (t_ptrs[1][x+1] - t_ptrs[1][x]); //
-
-
-                total_diffs = std::max(total_diffs,0);
-
-                write_p[x] = (uchar)(total_diffs/3); // divide to fit into 8bit char
-
-
-            }
-
-//            __android_log_print(ANDROID_LOG_ERROR, "SignFinder", "max response = %d", max_response);
-
-        }
-
-        //transfer response back into downsampled image
-        downsampled_img = response.clone();
-
-    }
-
     //create a likelihood of sign shape from downsampled image
     //parametrised size
-    static void responseFromDownsampledImage(cv::Mat &downsampled_img, int tempSize, int boxSize){
+    static cv::Mat responseFromDownsampledImage(cv::Mat &downsampled_img, int tempSize, int boxSize){
 
         //create response holder mat at size of downsampled mat
         cv::Mat response = cv::Mat(downsampled_img.rows, downsampled_img.cols, downsampled_img.type());
@@ -201,7 +96,6 @@ public:
 
                 //collect response from all rows
                 int total_diffs = 0;
-
 
                 //for each row
                 for (int t_rows = boxSize; t_rows < (tempSize - boxSize); ++t_rows) {
@@ -242,19 +136,199 @@ public:
 
 
                 //TODO normalise for number of comparisons?
-
+                total_diffs = total_diffs / ((tempSize-(2*boxSize))*4*boxSize);
 
                 total_diffs = std::max(total_diffs,0);
 
                 write_p[x] = (uchar)(total_diffs/3); // divide to fit into 8bit char
-
-
             }
-
         }
 
         //transfer response back into downsampled image
-        downsampled_img = response.clone();
+//        downsampled_img = response.clone();
+        return response.clone();
+    }
+
+    //create a likelihood of sign shape from downsampled image
+    //parametrised size - 2 parameters
+    static cv::Mat responseFromDownsampledImage(cv::Mat &downsampled_img, int tempSize, int boxSize, int cornerSize){
+
+        //create response holder mat at size of downsampled mat
+        cv::Mat response = cv::Mat(downsampled_img.rows, downsampled_img.cols, downsampled_img.type());
+
+        const int nRows = downsampled_img.rows - tempSize;
+        const int nCols = downsampled_img.cols - tempSize;
+
+        //at each row, build an array of pointers to the required blocks
+        uchar* t_ptrs[tempSize];
+        uchar* write_p;
+
+        //for each row
+        for (int y = 0; y < nRows; ++y) {
+
+            //build array of read pointers
+            for (int p_row = 0; p_row < tempSize; ++p_row) {
+                t_ptrs[p_row] = downsampled_img.ptr<uchar>(y + p_row);
+            }
+            //create write pointer
+            write_p = response.ptr<uchar>(y);
+
+            //iterate along the row and perform calculation at each column position to get response
+            for (int x = 0; x < nCols; ++x) {
+
+                //collect response from all rows
+                int b_sum = 0, w_sum = 0;
+
+                //for each row
+                for (int t_rows = cornerSize; t_rows < (tempSize - cornerSize); ++t_rows) {
+                    //left side
+                    for (int px = 0; px < boxSize; ++px) { //for each col in row
+                        b_sum += t_ptrs[t_rows][x+px];//edge
+                        w_sum += (2 * t_ptrs[t_rows][x+boxSize+px]);//inside edge
+//                        w_sum += t_ptrs[t_rows][x+boxSize+px];//inside edge
+                        b_sum += t_ptrs[t_rows][x+(2*boxSize)+px];//centre
+                    }
+                    //right side
+                    for (int px = 0; px < boxSize; ++px){
+                        b_sum += t_ptrs[t_rows][(x+tempSize)-(1+px)];//edge
+                        w_sum += (2 * t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)]);//inside edge
+//                        w_sum += t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)];//inside edge
+                        b_sum += t_ptrs[t_rows][(x+tempSize)-(1+(2*boxSize)+px)];//centre
+                    }
+
+                }
+                //for each column
+                for (int col = cornerSize; col < (tempSize-cornerSize); ++col) {
+                    //top
+                    for (int px = 0; px < boxSize; ++px) {
+                        b_sum += t_ptrs[px][x+col];//edge
+                        w_sum += (3 * t_ptrs[px+boxSize][x+col]);//inside edge
+                        b_sum += t_ptrs[px+(2*boxSize)][x+col];//centre
+                    }
+                    //bottom
+                    for (int px = 0; px < boxSize; ++px){
+                        b_sum += t_ptrs[tempSize-(1+px)][x+col];//edge
+                        w_sum += (3 * t_ptrs[tempSize-(1+px+boxSize)][x+col]);//inside edge
+                        b_sum += t_ptrs[tempSize-(1+px+(2*boxSize))][x+col];
+                    }
+
+                }
+
+//                //corner subtractions
+//                for (int px_x = 1; px_x < cornerSize; ++px_x) {
+//                    int px_y = cornerSize - px_x;
+//                    //top left
+//                    b_sum += t_ptrs[px_y][x+px_x];
+//                    //top right
+//                    b_sum += t_ptrs[px_y][x+(tempSize-1-px_x)];
+//                    //bottom left
+//                    b_sum += t_ptrs[tempSize-1-px_y][x+px_x];
+//                    //bottm right
+//                    b_sum += t_ptrs[tempSize-1-px_y][x+(tempSize-1-px_x)];
+//                }
+
+                int total_diffs = w_sum - b_sum;
+                //normalise for number of comparisons
+                total_diffs = total_diffs / ((tempSize-(2*cornerSize))*4*boxSize);
+                total_diffs = std::max(total_diffs,0);
+
+                write_p[x] = (uchar)(total_diffs/10); // divide to fit into 8bit char
+            }
+        }
+
+        //transfer response back into downsampled image
+        return response.clone();
+    }
+
+    //should get responses from multiple template sizes and find the strongest across sizes
+    static std::vector<cv::Rect> get_areas_of_interest(cv::Mat &input_img){
+
+
+        //define template sizes - move as a global variable?
+        std::vector<std::vector<int>> template_sizes;
+//        template_sizes.push_back(std::vector<int>{4,1,1});
+//        template_sizes.push_back(std::vector<int>{5,1,1});
+//        template_sizes.push_back(std::vector<int>{6,1,1});
+        template_sizes.push_back(std::vector<int>{6,1,2});
+        template_sizes.push_back(std::vector<int>{7,2,2});
+        template_sizes.push_back(std::vector<int>{8,2,2});
+        template_sizes.push_back(std::vector<int>{9,2,3});
+        template_sizes.push_back(std::vector<int>{10,2,3});
+        template_sizes.push_back(std::vector<int>{11,2,3});
+        template_sizes.push_back(std::vector<int>{12,2,3});
+        template_sizes.push_back(std::vector<int>{13,2,3});
+        template_sizes.push_back(std::vector<int>{14,2,3});
+        template_sizes.push_back(std::vector<int>{15,2,3});
+        template_sizes.push_back(std::vector<int>{16,2,4});
+        const int NUM_MATS = (int)template_sizes.size();
+
+        //make an array of mats
+        const int MIN_SIZE = 4;
+        std::vector<cv::Mat> responses;
+        for (int i = 0; i < NUM_MATS; ++i) {
+            cv::Mat r = cv::Mat(input_img.rows, input_img.cols, input_img.type());
+            //get response for each one
+            r = responseFromDownsampledImage(input_img, template_sizes[i][0],template_sizes[i][1],template_sizes[i][2]);
+            responses.push_back(r);
+        }
+
+        // search  mats for rois ===========================
+        const int scale = (int)std::pow(2, 4); //real px per downsampled px
+        const int NUM_RECTS = 10;
+        std::vector<cv::Rect> return_rois;
+        uchar* write_p;
+
+        //iterate to find most prominent 'peaks'
+        for (int i = 0; i < NUM_RECTS; ++i) {
+
+            double global_max = 0.0;
+            int max_mat_index=0;
+            cv::Point global_max_loc;
+            for (int m = 0; m < responses.size(); ++m) {
+
+                cv::Mat search_image = responses[m];
+
+                //find max response value location
+                cv::Point min_loc, max_loc;
+                double min, max;
+                cv::minMaxLoc(search_image, &min, &max, &min_loc, &max_loc);
+
+                if (max > global_max){
+                    global_max = max;
+                    max_mat_index = m;
+                    global_max_loc = max_loc;
+                }
+            }
+
+            //create rect and add to return list
+            cv::Rect ROI (global_max_loc.x * scale, global_max_loc.y * scale, template_sizes[max_mat_index][0] * scale, template_sizes[max_mat_index][0] * scale);
+            return_rois.push_back(ROI);
+
+//            set value at that point to 0 (so it is not found again) - for all mats
+//            for (int m = 0; m < responses.size(); ++m) {
+//                write_p = responses[m].ptr<uchar>(global_max_loc.y);
+//                write_p[global_max_loc.x] = (uchar)(0);
+//            }
+//            write_p = responses[max_mat_index].ptr<uchar>(global_max_loc.y);
+//            write_p[global_max_loc.x] = (uchar)(0);
+
+            //block pixels around current from being found again (in all responses)
+            const int NBR_RADIUS = 1;
+            for (int m = 0; m < responses.size(); ++m) {
+                for (int y = -NBR_RADIUS; y <= NBR_RADIUS; ++y) {
+                    write_p = responses[m].ptr<uchar>(global_max_loc.y + y);
+                    for (int x = -NBR_RADIUS; x <= NBR_RADIUS; ++x) {
+                        write_p[global_max_loc.x + x] = (uchar)(0);
+                    }
+                }
+            }
+
+
+
+        }
+
+        return return_rois;
+
 
     }
 
@@ -284,7 +358,6 @@ public:
             //set value at that point to 0 (so it is not found again)
             write_p = search_image.ptr<uchar>(max_loc.y);
             write_p[max_loc.x] = (uchar)(0);
-
 
         }
 
@@ -386,11 +459,14 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_findSigns(
 
 
     //downsampling method
-    cv::Mat downsampled_img = input;
+    cv::Mat downsampled_img = input;//TODO should be a clone?
+
     YTemplateMatcher::downsample(&input, downsampled_img,4);
+    YTemplateMatcher::stretch_contrast(downsampled_img);
 //    YTemplateMatcher::responseFromDownsampledImage(downsampled_img);
 //    YTemplateMatcher::compareResponses(downsampled_img);
-    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img, 4, 4);
+//    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img, 4, 4);
+    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
     YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
     YTemplateMatcher::drawRects(input, rects);
 
