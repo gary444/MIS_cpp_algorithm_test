@@ -23,15 +23,14 @@ import java.io.IOException;
 import static org.opencv.core.CvType.CV_32SC4;
 
 
-public class SignFinder extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
+public class SignFinderPhotoTest extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
 
-    private static final String TAG = "SignFinder";
+    private static final String TAG = "SignFinderPhotoTest";
     private CameraBridgeViewBase cameraBridgeViewBase;
 
 
     private Mat signResponse;
-    private Mat integ_img;
 
     private Mat test_img;
     private int img_index = 1;
@@ -117,7 +116,6 @@ public class SignFinder extends AppCompatActivity implements CameraBridgeViewBas
 
                     //init Mats
                     signResponse = new Mat(1280, 960, CvType.CV_8UC1);
-                    integ_img = new Mat(1281, 961, CvType.CV_32SC1);
 
                     test_img = load_test_image();
 
@@ -175,7 +173,7 @@ public class SignFinder extends AppCompatActivity implements CameraBridgeViewBas
         signResponse = test_img.clone();
 
         //native call
-        findSigns(signResponse.getNativeObjAddr(), integ_img.getNativeObjAddr(), templates[3].getNativeObjAddr());
+        findSigns(signResponse.getNativeObjAddr(), templates[3].getNativeObjAddr());
 
         frameCount++;
         if (frameCount > 20){
@@ -186,7 +184,7 @@ public class SignFinder extends AppCompatActivity implements CameraBridgeViewBas
         return signResponse;
     }
 
-    public native void findSigns(long matGrey, long integ_img, long template_img);
+    public native void findSigns(long matGrey, long template_img);
 
     public native void normaliseTemplate(long template_img);
 

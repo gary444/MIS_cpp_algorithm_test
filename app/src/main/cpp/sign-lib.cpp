@@ -34,26 +34,34 @@ public:
     }
 
     //increases contrast so that darkest image pixel = 0 and brihghtest = 255
-    static void stretch_contrast(cv::Mat& input_image){
+    static void stretch_contrast(cv::Mat& input_image) {
 
         //find min and max
         double min, max;
         cv::minMaxLoc(input_image, &min, &max);
-//        input_image += (input_image, -min);
         input_image = input_image - min;
-        input_image = input_image * (255.0/(max-min));
+        input_image = input_image * (255.0 / (max - min));
 
     }
-//    //increases contrast so that darkest image pixel = 0 and brihghtest = 255
-//    static void stretch_contrast(cv::Mat& input_image, ){
-//
-//        //find min and max
-//        double min, max;
-//        cv::minMaxLoc(input_image, &min, &max);
-//        input_image += (input_image, -min);
-//        input_image = input_image * (255.0/(max-min));
-//
-//    }
+
+    //crude threshold based categorisation of pixels as black or white
+    static void binarise(cv::Mat& input_image){
+
+        const int THRESHOLD = 128;
+
+        uchar* inpt_ptr;
+        for (int y = 0; y < input_image.rows; ++y) {
+            inpt_ptr = input_image.ptr<uchar>(y);
+            for (int x = 0; x < input_image.cols; ++x) {
+                int val = inpt_ptr[x * input_image.channels()];
+
+                if (val > THRESHOLD) {val = 255;}
+                else {val = 0;}
+
+                inpt_ptr[x * input_image.channels()] = (uchar)val;
+            }
+        }
+    }
 
     //transfer downsampled data back to full size mat
     static void displayDownsampledImg(cv::Mat* responseDest,
@@ -279,7 +287,7 @@ public:
 
         // search  mats for rois ===========================
         const int scale = (int)std::pow(2, 4); //real px per downsampled px
-        const int NUM_RECTS = 20;
+        const int NUM_RECTS = 40;
         std::vector<cv::Rect> return_rois;
         uchar* write_p;
 
@@ -328,37 +336,37 @@ public:
         return return_rois;
     }
 
-    static std::vector<cv::Rect> get_areas_of_interest(cv::Mat &downsampled_img, int scale_iterations, int template_size){
-
-        const int scale = (int)std::pow(2, scale_iterations);
-        const int NUM_RECTS = 5;
-        std::vector<cv::Rect> return_rois;
-        uchar* write_p;
-
-        //create a new matrix to hold edited data
-        cv::Mat search_image = downsampled_img.clone();
-
-        //iterate to find most prominent 'peaks'
-        for (int i = 0; i < NUM_RECTS; ++i) {
-
-            //find max response value location
-            cv::Point min_loc, max_loc;
-            double min, max;
-            cv::minMaxLoc(search_image, &min, &max, &min_loc, &max_loc);
-
-            //create rect and add to return list
-            cv::Rect ROI (max_loc.x * scale, max_loc.y * scale, template_size * scale, template_size * scale);
-            return_rois.push_back(ROI);
-
-            //set value at that point to 0 (so it is not found again)
-            write_p = search_image.ptr<uchar>(max_loc.y);
-            write_p[max_loc.x] = (uchar)(0);
-
-        }
-
-        return return_rois;
-
-    }
+//    static std::vector<cv::Rect> get_areas_of_interest(cv::Mat &downsampled_img, int scale_iterations, int template_size){
+//
+//        const int scale = (int)std::pow(2, scale_iterations);
+//        const int NUM_RECTS = 5;
+//        std::vector<cv::Rect> return_rois;
+//        uchar* write_p;
+//
+//        //create a new matrix to hold edited data
+//        cv::Mat search_image = downsampled_img.clone();
+//
+//        //iterate to find most prominent 'peaks'
+//        for (int i = 0; i < NUM_RECTS; ++i) {
+//
+//            //find max response value location
+//            cv::Point min_loc, max_loc;
+//            double min, max;
+//            cv::minMaxLoc(search_image, &min, &max, &min_loc, &max_loc);
+//
+//            //create rect and add to return list
+//            cv::Rect ROI (max_loc.x * scale, max_loc.y * scale, template_size * scale, template_size * scale);
+//            return_rois.push_back(ROI);
+//
+//            //set value at that point to 0 (so it is not found again)
+//            write_p = search_image.ptr<uchar>(max_loc.y);
+//            write_p[max_loc.x] = (uchar)(0);
+//
+//        }
+//
+//        return return_rois;
+//
+//    }
 
     static std::vector<cv::Rect> matchSigns1(cv::Mat input_img, std::vector<cv::Rect> rois, cv::Mat &template_img){
 
@@ -506,7 +514,7 @@ public:
     static void display_rois(cv::Mat &input, std::vector<cv::Rect> rects, cv::Mat& template_img){
 
         cv::Mat output (input.rows, input.cols, input.type());
-
+        const int ROIS_IN_ROW = 10;
         uchar* write;
 
         //write rois to output image
@@ -517,8 +525,8 @@ public:
             cv::Mat roi = cv::Mat(input, rects[i]);
             cv::resize(roi, roi, cv::Size(roi_size,roi_size));
 
-            int col = i % 5;
-            int row = i / 5;
+            int col = i % ROIS_IN_ROW;
+            int row = i / ROIS_IN_ROW;
             int start_x = col * 120;
             int start_y = row * 120;
 
@@ -559,69 +567,9 @@ public:
         input = output.clone();
     }
 
-//    //fills the response matrix
-//    static void rectanglePatternMatching_integralimg(cv::Mat* responseDest,
-//                                                     cv::Mat* input_integ_img) {
-//
-//        // accept only single channel input
-//        CV_Assert(responseDest->channels() == 1);
-//
-//        //for each position in matrix calculate response
-//        //TODO - border handling? for now only calc when template is in image range
-//
-//        int max_response = 0;
-//        //access each element of return array - within range
-//        int nRows = responseDest->rows - templateSize;
-//        int nCols = responseDest->cols - templateSize;
-//        uchar* p;
-//        for( int y = 0; y < nRows; ++y)
-//        {
-//            //get ptr to this row
-//            p = responseDest->ptr<uchar>(y);
-//            for (int x = 0; x < nCols; ++x)
-//            {
-//                //calculate response at each part - cast to 8 bit
-//                int response = getResponseAt(x,y,input_integ_img);
-//                if (response > max_response) {max_response = response;}
-//                p[x] = (uchar)(response / 1000);//hard coded scaling - only for visualisation purposes
-//            }
-//        }
-//
-//    }
 
 private:
-//    static const int templateSize = 50;
 
-//    //calculates the total differences between pairs of regions
-//    //where top let of template is given by x,y
-//     static int getResponseAt(int x, int y, cv::Mat* input_integ_img) {
-//
-//        int totalDiffs = 0, bSum = 0, wSum = 0;
-//
-//
-//        //simplified single pair: W - B
-////        W
-//        totalDiffs += getSumInRect(new cv::Rect(x + (templateSize/2),y,templateSize/2, templateSize),  input_integ_img);
-//        //B
-//        totalDiffs -= getSumInRect(new cv::Rect(x,y,templateSize/2, templateSize),  input_integ_img);
-//        totalDiffs = abs(totalDiffs);
-//
-////        __android_log_print(ANDROID_LOG_ERROR, "SEARCH FOR THIS TAG", "totalDiffs + %d", abs(totalDiffs));
-//
-//        return totalDiffs;
-//    }
-
-    //returns sum of pixel intensities within the given rectangle,
-    // using an integral image which it takes as an argument
-//    static int getSumInRect(cv::Rect *r, cv::Mat* input_integ_img){
-//
-//        //use int as type because integ img is type 4: 32 bit int
-//        int a = input_integ_img->at<int>(r->y, r->x);
-//        int b = input_integ_img->at<int>(r->y, r->x+r->width);
-//        int c = input_integ_img->at<int>(r->y + r->height, r->x);
-//        int d = input_integ_img->at<int>(r->y + r->height, r->x+r->width);
-//        return (a + d - b - c);
-//    }
 
 
 
@@ -630,10 +578,9 @@ private:
 
 extern "C" JNIEXPORT void
 JNICALL
-Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_findSigns(
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_findSigns(
         JNIEnv* env, jobject,
         jlong gray,
-        jlong integ_img_placeholder,
         jlong template_ptr){
 
     cv::Mat& input = *(cv::Mat *) gray;
@@ -643,27 +590,52 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_findSigns(
     cv::Mat downsampled_img = input;//TODO should be a clone?
 
     YTemplateMatcher::downsample(&input, downsampled_img,4);
-    YTemplateMatcher::stretch_contrast(downsampled_img);
     std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
 
+
+    YTemplateMatcher::binarise(input);
     std::vector<cv::Rect> best_match = YTemplateMatcher::matchSigns2(input, rects, template_img);
-//    std::vector<cv::Rect> best_match;//dummy
 
 //    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
 //    YTemplateMatcher::drawRects(input, rects);
 //    YTemplateMatcher::drawRect(input, best_match);
 
+    YTemplateMatcher::display_rois(input,best_match, template_img);
+}
+
+//TODO sort repeat
+extern "C" JNIEXPORT void
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderCamTest_findSigns(
+        JNIEnv* env, jobject,
+        jlong gray,
+        jlong template_ptr){
+
+    cv::Mat& input = *(cv::Mat *) gray;
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+
+    //downsampling method
+    cv::Mat downsampled_img = input;//TODO should be a clone?
+
+    YTemplateMatcher::downsample(&input, downsampled_img,4);
+    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
+
+
+    YTemplateMatcher::binarise(input);
+    std::vector<cv::Rect> best_match = YTemplateMatcher::matchSigns2(input, rects, template_img);
+
+//    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
+//    YTemplateMatcher::drawRects(input, rects);
+//    YTemplateMatcher::drawRect(input, best_match);
 
     YTemplateMatcher::display_rois(input,best_match, template_img);
-
-
 }
 
 
 //function to normalise templates so that sum of intensity = 0
 extern "C" JNIEXPORT void
 JNICALL
-Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_normaliseTemplate(
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_normaliseTemplate(
         JNIEnv* env, jobject,
         jlong template_ptr){
 
@@ -694,7 +666,7 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_normaliseTemplate(
 //function to normalise templates so that sum of intensity = 0
 extern "C" JNIEXPORT void
 JNICALL
-Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_createTemplateMask(
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_createTemplateMask(
         JNIEnv* env, jobject,
         jlong template_ptr){
 
@@ -725,6 +697,45 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_createTemplateMask(
         }
     }
 }
+
+//TODO sort repeat
+
+//function to normalise templates so that sum of intensity = 0
+extern "C" JNIEXPORT void
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderCamTest_createTemplateMask(
+        JNIEnv* env, jobject,
+        jlong template_ptr){
+
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+    int32_t * template_p;
+
+    //get sum of template
+    for (int y = 0; y < template_img.rows; ++y) {
+        template_p = template_img.ptr<int32_t>(y);
+        for (int x = 0; x < template_img.cols; ++x) {
+
+            //see if there is opacity here
+            if (template_p[(x*4)+3] > 0){
+
+                //set to 1 if white
+                if (template_p[x*template_img.channels()] > 150){
+                    template_p[x*template_img.channels()] = 1;
+                }
+                    //else set to -1
+                else {
+                    template_p[x*template_img.channels()] = -1;
+                }
+            }
+                //set to 0 when no opacity is present
+            else {
+                template_p[x * template_img.channels()] = 0;
+            }
+        }
+    }
+}
+
+
 
 
 
