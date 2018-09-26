@@ -3,10 +3,8 @@ package com.example.garyrendle.mis_cpp_test;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -33,11 +31,21 @@ public class MainActivity extends AppCompatActivity {
 
 
         // Button to call Sign Finder Activity
-        Button signFinder = (Button)findViewById(R.id.signFinder);
-        signFinder.setOnClickListener(new View.OnClickListener() {
+        Button signFinderPhotoTest = (Button)findViewById(R.id.signFinder);
+        signFinderPhotoTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent i = new Intent(getApplicationContext(),SignFinder.class);
+                Intent i = new Intent(getApplicationContext(),SignFinderPhotoTest.class);
+                startActivity(i);
+            }
+        });
+
+        // Button to call Sign Finder Activity
+        Button signFinderCamTest = (Button)findViewById(R.id.signFinderCamTest);
+        signFinderCamTest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(getApplicationContext(),SignFinderCamTest.class);
                 startActivity(i);
             }
         });

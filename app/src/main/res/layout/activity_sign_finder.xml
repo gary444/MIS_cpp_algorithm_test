@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/activity_sign_finder"
-    tools:context=".SignFinder">
+    tools:context=".SignFinderPhotoTest">
 
     <org.opencv.android.JavaCameraView
         android:layout_width="match_parent"

@@ -17,10 +17,18 @@
         <!--app:layout_constraintTop_toTopOf="parent" />-->
 
     <Button
-        android:text="SF"
+        android:text="PhotoTest"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:id="@+id/signFinder"/>
+
+    <Button
+        android:text="CamTest"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        app:layout_constraintLeft_toRightOf="@+id/signFinder"
+        android:id="@+id/signFinderCamTest"/>
 
 </android.support.constraint.ConstraintLayout>
