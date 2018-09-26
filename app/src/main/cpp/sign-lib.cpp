@@ -39,10 +39,21 @@ public:
         //find min and max
         double min, max;
         cv::minMaxLoc(input_image, &min, &max);
-        input_image += (input_image, -min);
+//        input_image += (input_image, -min);
+        input_image = input_image - min;
         input_image = input_image * (255.0/(max-min));
 
     }
+//    //increases contrast so that darkest image pixel = 0 and brihghtest = 255
+//    static void stretch_contrast(cv::Mat& input_image, ){
+//
+//        //find min and max
+//        double min, max;
+//        cv::minMaxLoc(input_image, &min, &max);
+//        input_image += (input_image, -min);
+//        input_image = input_image * (255.0/(max-min));
+//
+//    }
 
     //transfer downsampled data back to full size mat
     static void displayDownsampledImg(cv::Mat* responseDest,
@@ -185,14 +196,12 @@ public:
                     for (int px = 0; px < boxSize; ++px) { //for each col in row
                         b_sum += t_ptrs[t_rows][x+px];//edge
                         w_sum += (2 * t_ptrs[t_rows][x+boxSize+px]);//inside edge
-//                        w_sum += t_ptrs[t_rows][x+boxSize+px];//inside edge
                         b_sum += t_ptrs[t_rows][x+(2*boxSize)+px];//centre
                     }
                     //right side
                     for (int px = 0; px < boxSize; ++px){
                         b_sum += t_ptrs[t_rows][(x+tempSize)-(1+px)];//edge
                         w_sum += (2 * t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)]);//inside edge
-//                        w_sum += t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)];//inside edge
                         b_sum += t_ptrs[t_rows][(x+tempSize)-(1+(2*boxSize)+px)];//centre
                     }
 
@@ -243,12 +252,8 @@ public:
     //should get responses from multiple template sizes and find the strongest across sizes
     static std::vector<cv::Rect> get_areas_of_interest(cv::Mat &input_img){
 
-
         //define template sizes - move as a global variable?
         std::vector<std::vector<int>> template_sizes;
-//        template_sizes.push_back(std::vector<int>{4,1,1});
-//        template_sizes.push_back(std::vector<int>{5,1,1});
-//        template_sizes.push_back(std::vector<int>{6,1,1});
         template_sizes.push_back(std::vector<int>{6,1,2});
         template_sizes.push_back(std::vector<int>{7,2,2});
         template_sizes.push_back(std::vector<int>{8,2,2});
@@ -274,7 +279,7 @@ public:
 
         // search  mats for rois ===========================
         const int scale = (int)std::pow(2, 4); //real px per downsampled px
-        const int NUM_RECTS = 10;
+        const int NUM_RECTS = 20;
         std::vector<cv::Rect> return_rois;
         uchar* write_p;
 
@@ -304,15 +309,8 @@ public:
             cv::Rect ROI (global_max_loc.x * scale, global_max_loc.y * scale, template_sizes[max_mat_index][0] * scale, template_sizes[max_mat_index][0] * scale);
             return_rois.push_back(ROI);
 
-//            set value at that point to 0 (so it is not found again) - for all mats
-//            for (int m = 0; m < responses.size(); ++m) {
-//                write_p = responses[m].ptr<uchar>(global_max_loc.y);
-//                write_p[global_max_loc.x] = (uchar)(0);
-//            }
-//            write_p = responses[max_mat_index].ptr<uchar>(global_max_loc.y);
-//            write_p[global_max_loc.x] = (uchar)(0);
-
             //block pixels around current from being found again (in all responses)
+            //basic local maxima finding system
             const int NBR_RADIUS = 1;
             for (int m = 0; m < responses.size(); ++m) {
                 for (int y = -NBR_RADIUS; y <= NBR_RADIUS; ++y) {
@@ -328,8 +326,6 @@ public:
         }
 
         return return_rois;
-
-
     }
 
     static std::vector<cv::Rect> get_areas_of_interest(cv::Mat &downsampled_img, int scale_iterations, int template_size){
@@ -341,7 +337,6 @@ public:
 
         //create a new matrix to hold edited data
         cv::Mat search_image = downsampled_img.clone();
-
 
         //iterate to find most prominent 'peaks'
         for (int i = 0; i < NUM_RECTS; ++i) {
@@ -365,11 +360,203 @@ public:
 
     }
 
+    static std::vector<cv::Rect> matchSigns1(cv::Mat input_img, std::vector<cv::Rect> rois, cv::Mat &template_img){
+
+        //to keep scores in:
+        std::vector<long int> roi_scores(rois.size());
+
+        //for each rect
+        for (int i = 0; i < rois.size(); ++i) {
+
+            //scale roi to same size as templates (100x100)
+            cv::Mat roi = cv::Mat(input_img, rois[i]);
+            cv::resize(roi, roi, cv::Size(template_img.rows, template_img.cols));
+
+            long int response = match_template_sqdiff(roi, template_img);
+            roi_scores[i] = response;
+
+        }
+
+        //rearrange rois by order (min to max)
+        std::vector<cv::Rect> rtn_rects (rois.size());
+        for (int i = 0; i < rois.size(); ++i) {
+            std::vector<long int>::iterator min = std::min_element(std::begin(roi_scores), std::end(roi_scores));
+            long int min_index = std::distance(std::begin(roi_scores), min);
+            roi_scores[min_index] = LONG_MAX;
+            rtn_rects[i] = rois[min_index];
+        }
+
+        //return best matches
+        return rtn_rects;
+    }
+
+    //self made template matching for sqdiff TM
+    //requires that mats are pre-sized correctly
+    static long int match_template_sqdiff(cv::Mat &input_img, cv::Mat &template_img){
+
+        //check dimensions of input mats
+        CV_Assert(input_img.rows == template_img.rows && input_img.cols == template_img.cols);
+
+        long int response = 0;
+
+        int nRows = input_img.rows;
+        int nCols = input_img.cols;
+
+        int32_t * template_p;
+        uchar* img_p;
+
+        //for each pixel
+        for (int y = 0; y < nRows; ++y) {
+            img_p = input_img.ptr<uchar>(y);
+            template_p = template_img.ptr<int32_t>(y);
+
+            for (int x = 0; x < nCols; ++x) {
+
+                //check alpha value of template
+                //skip comparison if 0
+                int32_t template_alpha = template_p[(x*4)+3];
+
+                if (template_alpha > 0){
+                    int32_t template_val = template_p[x*4];
+                    int32_t img_val = img_p[x];
+
+                    //add squared difference to response
+                    response = (template_val - img_val) * (template_val - img_val);
+                }
+
+            }
+        }
+        return response;
+
+    }
+
+    static std::vector<cv::Rect> matchSigns2(cv::Mat input_img, std::vector<cv::Rect> rois, cv::Mat &template_img){
+
+        //to keep scores in:
+        std::vector<long int> roi_scores(rois.size());
+
+        //for each rect
+        for (int i = 0; i < rois.size(); ++i) {
+
+            //scale roi to same size as templates (100x100)
+            cv::Mat roi = cv::Mat(input_img, rois[i]);
+            cv::resize(roi, roi, cv::Size(template_img.rows, template_img.cols));
+
+            long int response = match_template_mask(roi, template_img);
+            roi_scores[i] = response;
+
+        }
+
+        //rearrange rois by order (min to max)
+        std::vector<cv::Rect> rtn_rects (rois.size());
+        for (int i = 0; i < rois.size(); ++i) {
+            std::vector<long int>::iterator min = std::min_element(std::begin(roi_scores), std::end(roi_scores));
+            long int min_index = std::distance(std::begin(roi_scores), min);
+            roi_scores[min_index] = LONG_MAX;
+            rtn_rects[i] = rois[min_index];
+        }
+
+        //return best matches
+        return rtn_rects;
+    }
+
+    //requires that mats are pre-sized correctly
+    static long int match_template_mask(cv::Mat &input_img, cv::Mat &template_img){
+
+        //check dimensions of input mats
+        CV_Assert(input_img.rows == template_img.rows && input_img.cols == template_img.cols);
+
+        long int response = 0;
+
+        int nRows = input_img.rows;
+        int nCols = input_img.cols;
+
+        int32_t * template_p;
+        uchar* img_p;
+
+        //for each pixel
+        for (int y = 0; y < nRows; ++y) {
+            img_p = input_img.ptr<uchar>(y);
+            template_p = template_img.ptr<int32_t>(y);
+
+            for (int x = 0; x < nCols; ++x) {
+
+                int32_t template_val = template_p[x*template_img.channels()];
+                int32_t img_val = img_p[x];
+                response += (template_val * img_val);
+            }
+        }
+        return response;
+    }
+
+
+
     //draws a list of rects on a given image
     static void drawRects(cv::Mat& input, std::vector<cv::Rect> rects){
         for (int i = 0; i < rects.size(); ++i) {
             cv::rectangle(input,rects[i], cv::Scalar(255));
         }
+    }
+    //draws a list of rects on a given image
+    static void drawRect(cv::Mat& input, cv::Rect rect){
+            cv::rectangle(input,rect, cv::Scalar(255));
+    }
+
+    //prints all rois to screen (not checking length of rects vector atm)
+    static void display_rois(cv::Mat &input, std::vector<cv::Rect> rects, cv::Mat& template_img){
+
+        cv::Mat output (input.rows, input.cols, input.type());
+
+        uchar* write;
+
+        //write rois to output image
+        for (int i = 0; i < rects.size(); ++i) {
+
+            int roi_size = 100;
+
+            cv::Mat roi = cv::Mat(input, rects[i]);
+            cv::resize(roi, roi, cv::Size(roi_size,roi_size));
+
+            int col = i % 5;
+            int row = i / 5;
+            int start_x = col * 120;
+            int start_y = row * 120;
+
+            //write to output
+            uchar* read;
+
+            //write roi to output
+            for (int y = 0; y < roi_size; ++y) {
+
+                read = roi.ptr<uchar>(y);
+                write = output.ptr<uchar>(start_y + y);
+                for (int x = 0; x < roi_size; ++x) {
+                    write[start_x + x] = read[x];
+                }
+            }
+        }
+
+        //write to output
+        int32_t * read;
+
+        int tmp_start_x = 0;
+        int tmp_start_y = 800;
+
+        //write roi to output
+        for (int y = 0; y < template_img.rows; ++y) {
+            read = template_img.ptr<int32_t>(y);
+
+            write = output.ptr<uchar>(tmp_start_y + y);
+            for (int x = 0; x < template_img.cols; ++x) {
+                int32_t offset = 0;
+                int32_t write_val = read[x * template_img.channels()] + offset;
+                write_val = std::min(write_val, 255);
+                write_val = std::max(write_val, 0);
+                write[tmp_start_x + x] = (uchar)write_val;
+            }
+        }
+
+        input = output.clone();
     }
 
 //    //fills the response matrix
@@ -403,7 +590,7 @@ public:
 //    }
 
 private:
-    static const int templateSize = 50;
+//    static const int templateSize = 50;
 
 //    //calculates the total differences between pairs of regions
 //    //where top let of template is given by x,y
@@ -446,33 +633,101 @@ JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_findSigns(
         JNIEnv* env, jobject,
         jlong gray,
-        jlong integ_img_placeholder){
+        jlong integ_img_placeholder,
+        jlong template_ptr){
 
     cv::Mat& input = *(cv::Mat *) gray;
-
-    //TODO address memory leak - def occurs when using integ_img method
-
-    //method that first creates integral image to calculate region totals:
-//    cv::Mat& integ_img = *(cv::Mat *) integ_img_placeholder;
-//    cv::integral(input, integ_img);
-//    YTemplateMatcher::rectanglePatternMatching_integralimg(&input, &integ_img);
-
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
 
     //downsampling method
     cv::Mat downsampled_img = input;//TODO should be a clone?
 
     YTemplateMatcher::downsample(&input, downsampled_img,4);
     YTemplateMatcher::stretch_contrast(downsampled_img);
-//    YTemplateMatcher::responseFromDownsampledImage(downsampled_img);
-//    YTemplateMatcher::compareResponses(downsampled_img);
-//    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img, 4, 4);
     std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
-    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
-    YTemplateMatcher::drawRects(input, rects);
 
-    //TODO how best to create response from downsampled image?
+    std::vector<cv::Rect> best_match = YTemplateMatcher::matchSigns2(input, rects, template_img);
+//    std::vector<cv::Rect> best_match;//dummy
+
+//    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
+//    YTemplateMatcher::drawRects(input, rects);
+//    YTemplateMatcher::drawRect(input, best_match);
+
+
+    YTemplateMatcher::display_rois(input,best_match, template_img);
+
 
 }
+
+
+//function to normalise templates so that sum of intensity = 0
+extern "C" JNIEXPORT void
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_normaliseTemplate(
+        JNIEnv* env, jobject,
+        jlong template_ptr){
+
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+
+    int32_t * template_p;
+
+    //get sum of template
+    long int template_sum = 0;
+    long int num_px = 0;
+    for (int y = 0; y < template_img.rows; ++y) {
+        template_p = template_img.ptr<int32_t>(y);
+        for (int x = 0; x < template_img.cols; ++x) {
+            //see if there is opacity here
+            if (template_p[(x*4)+3] > 0){
+                num_px++;
+                //accumulate intensity
+                template_sum += template_p[x*4];
+            }
+        }
+    }
+    long int mean_intensity = template_sum / num_px;
+    //subtract mean element wise
+    template_img = template_img - cv::Scalar(mean_intensity, mean_intensity, mean_intensity, 0);
+
+}
+
+//function to normalise templates so that sum of intensity = 0
+extern "C" JNIEXPORT void
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinder_createTemplateMask(
+        JNIEnv* env, jobject,
+        jlong template_ptr){
+
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+    int32_t * template_p;
+
+    //get sum of template
+    for (int y = 0; y < template_img.rows; ++y) {
+        template_p = template_img.ptr<int32_t>(y);
+        for (int x = 0; x < template_img.cols; ++x) {
+
+            //see if there is opacity here
+            if (template_p[(x*4)+3] > 0){
+
+                //set to 1 if white
+                if (template_p[x*template_img.channels()] > 150){
+                    template_p[x*template_img.channels()] = 1;
+                }
+                    //else set to -1
+                else {
+                    template_p[x*template_img.channels()] = -1;
+                }
+            }
+                //set to 0 when no opacity is present
+            else {
+                template_p[x * template_img.channels()] = 0;
+            }
+        }
+    }
+}
+
+
+
 
 
 
