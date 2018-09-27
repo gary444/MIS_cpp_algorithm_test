@@ -3,9 +3,9 @@ package com.example.garyrendle.mis_cpp_test;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
             public void processFinish(Integer output) {
                 Log.d(TAG, "onPostExecute: " + output);
 
-                //If maxspeed is 100 -> error parsing json
+                //If maxspeed is -100 -> error parsing json
                 //If maxspeed is -2 -> error calculating new value
                 Toast.makeText(getApplicationContext(), "max speed = " + output, LENGTH_SHORT).show();
 
@@ -48,11 +48,21 @@ public class MainActivity extends AppCompatActivity {
         }).execute(url);
 
         // Button to call Sign Finder Activity
-        Button signFinder = (Button)findViewById(R.id.signFinder);
-        signFinder.setOnClickListener(new View.OnClickListener() {
+        Button signFinderPhotoTest = (Button)findViewById(R.id.signFinder);
+        signFinderPhotoTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent i = new Intent(getApplicationContext(),SignFinder.class);
+                Intent i = new Intent(getApplicationContext(),SignFinderPhotoTest.class);
+                startActivity(i);
+            }
+        });
+
+        // Button to call Sign Finder Activity
+        Button signFinderCamTest = (Button)findViewById(R.id.signFinderCamTest);
+        signFinderCamTest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(getApplicationContext(),SignFinderCamTest.class);
                 startActivity(i);
             }
         });
