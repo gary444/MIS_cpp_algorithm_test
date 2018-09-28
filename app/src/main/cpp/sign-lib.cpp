@@ -615,25 +615,25 @@ private:
             }
         }
 
-        //write to output
-        int32_t * read;
 
-        int tmp_start_x = 0;
-        int tmp_start_y = 800;
-
-        //write roi to output
-        for (int y = 0; y < template_img.rows; ++y) {
-            read = template_img.ptr<int32_t>(y);
-
-            write = output.ptr<uchar>(tmp_start_y + y);
-            for (int x = 0; x < template_img.cols; ++x) {
-                int32_t offset = 0;
-                int32_t write_val = read[x * template_img.channels()] + offset;
-                write_val = std::min(write_val, 255);
-                write_val = std::max(write_val, 0);
-                write[tmp_start_x + x] = (uchar)write_val;
-            }
-        }
+        //write template to output
+//        int32_t * read;
+//
+//        int tmp_start_x = 0;
+//        int tmp_start_y = 800;
+//
+//        for (int y = 0; y < template_img.rows; ++y) {
+//            read = template_img.ptr<int32_t>(y);
+//
+//            write = output.ptr<uchar>(tmp_start_y + y);
+//            for (int x = 0; x < template_img.cols; ++x) {
+//                int32_t offset = 0;
+//                int32_t write_val = read[x * template_img.channels()] + offset;
+//                write_val = std::min(write_val, 255);
+//                write_val = std::max(write_val, 0);
+//                write[tmp_start_x + x] = (uchar)write_val;
+//            }
+//        }
 
         input = output.clone();
     }
