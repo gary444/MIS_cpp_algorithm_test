@@ -26,6 +26,10 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
         this.activity = activity;
     }
 
+
+
+
+
     @Override
     protected Integer doInBackground(String... strings) {
 
@@ -49,17 +53,17 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
             }
 
             urlConnection.disconnect();
-
-            activity.runOnUiThread(new Runnable() {
-                public void run() {
-                    Toast.makeText(activity, "request success", Toast.LENGTH_SHORT).show();
-                }
-            });
+//
+//            activity.runOnUiThread(new Runnable() {
+//                public void run() {
+//                    Toast.makeText(activity, "request success", Toast.LENGTH_SHORT).show();
+//                }
+//            });
 
             String JSON_string = builder.toString();
 
             //get max speed from JSON
-            int maxspeed = -1;
+            int maxspeed = -2;
             JSONObject jsonObj = new JSONObject(JSON_string);
             JSONArray elements = jsonObj.getJSONArray("elements");
             if (elements.length() > 0){
@@ -78,22 +82,30 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
             //show toast message on ui thread
             //ref: https://stackoverflow.com/questions/3134683/android-toast-in-a-thread
-            activity.runOnUiThread(new Runnable() {
-                public void run() {
-                    Toast.makeText(activity, err, Toast.LENGTH_SHORT).show();
-                }
-            });
+//            activity.runOnUiThread(new Runnable() {
+//                public void run() {
+//                    Toast.makeText(activity, err, Toast.LENGTH_SHORT).show();
+//                }
+//            });
 
-            return -1;
+
+            return -100;
         }
     }
+    //interface to send value back to main activity
+    public interface AsyncResponse {
+        void processFinish(Integer output);
+    }
 
+    public AsyncResponse delegate = null;
+
+    public GetContentTask(AsyncResponse delegate){
+        this.delegate = delegate;
+    }
     @Override
     protected void onPostExecute(Integer input) {
-        Log.d(TAG, "onPostExecute: " + input);
-
-        Toast.makeText(activity, "max speed = " + input, Toast.LENGTH_SHORT).show();
-
+        //"input" is sent to main activity
+        delegate.processFinish(input);
         activity = null;
     }
 }
