@@ -19,6 +19,65 @@ class YTemplateMatcher {
 
 public:
 
+    //finds signs, using many other functions below
+    static int findSigns(cv::Mat &input, cv::Mat& template_img){
+
+        //downsampling method
+        cv::Mat downsampled_img = input;
+
+        downsample(&input, downsampled_img,4);
+        std::vector<cv::Rect> rects = get_areas_of_interest(downsampled_img);
+
+        binarise(input);
+
+        std::vector<int> scores;
+        std::vector<cv::Rect> best_match = matchSigns2(input, rects, template_img, scores);
+
+//    displayDownsampledImg(&input, downsampled_img);
+//    drawRects(input, rects);
+//    drawRect(input, best_match);
+
+        display_rois(input,best_match, template_img);
+
+        int rtn_score = -1;
+        if (scores.size() > 0){
+            rtn_score= scores[scores.size()-1];
+        }
+
+        return rtn_score;
+    }
+
+    //turns template image into a mask, where
+    // white = 1, black = -1, transparent = 0
+    static void createTemplateMask(cv::Mat &template_img){
+
+        int32_t * template_p;
+        //get sum of template
+        for (int y = 0; y < template_img.rows; ++y) {
+            template_p = template_img.ptr<int32_t>(y);
+            for (int x = 0; x < template_img.cols; ++x) {
+
+                //see if there is opacity here
+                if (template_p[(x*4)+3] > 0){
+
+                    //set to 1 if white
+                    if (template_p[x*template_img.channels()] > 150){
+                        template_p[x*template_img.channels()] = 1;
+                    }
+                        //else set to -1
+                    else {
+                        template_p[x*template_img.channels()] = -1;
+                    }
+                }
+                    //set to 0 when no opacity is present
+                else {
+                    template_p[x * template_img.channels()] = 0;
+                }
+            }
+        }
+    }
+
+private:
 
     //iterative downsampling with pyramid function
     //TODO - can this be done directly without downsampling iteratively?
@@ -438,7 +497,7 @@ public:
 
     }
 
-    static std::vector<cv::Rect> matchSigns2(cv::Mat input_img, std::vector<cv::Rect> rois, cv::Mat &template_img){
+    static std::vector<cv::Rect> matchSigns2(cv::Mat input_img, std::vector<cv::Rect> rois, cv::Mat &template_img, std::vector<int> &scores){
 
         //to keep scores in:
         std::vector<long int> roi_scores(rois.size());
@@ -456,12 +515,23 @@ public:
         }
 
         //rearrange rois by order (min to max)
-        std::vector<cv::Rect> rtn_rects (rois.size());
+//        std::vector<cv::Rect> rtn_rects (rois.size());
+        std::vector<cv::Rect> rtn_rects;
+
+
         for (int i = 0; i < rois.size(); ++i) {
             std::vector<long int>::iterator min = std::min_element(std::begin(roi_scores), std::end(roi_scores));
             long int min_index = std::distance(std::begin(roi_scores), min);
+
+//            scores.push_back((int)roi_scores[min_index]);
+
+            if (roi_scores[min_index] > 0){
+
+                rtn_rects.push_back(rois[min_index]);
+            }
+
             roi_scores[min_index] = LONG_MAX;
-            rtn_rects[i] = rois[min_index];
+//            rtn_rects[i] = rois[min_index];
         }
 
         //return best matches
@@ -469,6 +539,7 @@ public:
     }
 
     //requires that mats are pre-sized correctly
+    //treats template as a mask, expects -1 for black values and 1 for white values
     static long int match_template_mask(cv::Mat &input_img, cv::Mat &template_img){
 
         //check dimensions of input mats
@@ -568,10 +639,8 @@ public:
     }
 
 
+
 private:
-
-
-
 
 };
 
@@ -580,27 +649,12 @@ extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_findSigns(
         JNIEnv* env, jobject,
-        jlong gray,
+        jlong input_ptr,
         jlong template_ptr){
 
-    cv::Mat& input = *(cv::Mat *) gray;
+    cv::Mat& input = *(cv::Mat *) input_ptr;
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
-
-    //downsampling method
-    cv::Mat downsampled_img = input;//TODO should be a clone?
-
-    YTemplateMatcher::downsample(&input, downsampled_img,4);
-    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
-
-
-    YTemplateMatcher::binarise(input);
-    std::vector<cv::Rect> best_match = YTemplateMatcher::matchSigns2(input, rects, template_img);
-
-//    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
-//    YTemplateMatcher::drawRects(input, rects);
-//    YTemplateMatcher::drawRect(input, best_match);
-
-    YTemplateMatcher::display_rois(input,best_match, template_img);
+    YTemplateMatcher::findSigns(input, template_img);
 }
 
 //TODO sort repeat
@@ -608,27 +662,27 @@ extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderCamTest_findSigns(
         JNIEnv* env, jobject,
+        jlong input_ptr,
+        jlong template_ptr){
+
+    cv::Mat& input = *(cv::Mat *) input_ptr;
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+    YTemplateMatcher::findSigns(input, template_img);
+}
+
+
+//TODO sort repeat
+extern "C" JNIEXPORT jint
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderBackground_findSigns(
+        JNIEnv* env, jobject,
         jlong gray,
         jlong template_ptr){
 
     cv::Mat& input = *(cv::Mat *) gray;
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
 
-    //downsampling method
-    cv::Mat downsampled_img = input;//TODO should be a clone?
-
-    YTemplateMatcher::downsample(&input, downsampled_img,4);
-    std::vector<cv::Rect> rects = YTemplateMatcher::get_areas_of_interest(downsampled_img);
-
-
-    YTemplateMatcher::binarise(input);
-    std::vector<cv::Rect> best_match = YTemplateMatcher::matchSigns2(input, rects, template_img);
-
-//    YTemplateMatcher::displayDownsampledImg(&input, downsampled_img);
-//    YTemplateMatcher::drawRects(input, rects);
-//    YTemplateMatcher::drawRect(input, best_match);
-
-    YTemplateMatcher::display_rois(input,best_match, template_img);
+    return (jint)YTemplateMatcher::findSigns(input, template_img);
 }
 
 
@@ -663,7 +717,8 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_normaliseTemplate
 
 }
 
-//function to normalise templates so that sum of intensity = 0
+//to create template mask------------------------
+
 extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_createTemplateMask(
@@ -671,36 +726,9 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_createTemplateMas
         jlong template_ptr){
 
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
-    int32_t * template_p;
-
-    //get sum of template
-    for (int y = 0; y < template_img.rows; ++y) {
-        template_p = template_img.ptr<int32_t>(y);
-        for (int x = 0; x < template_img.cols; ++x) {
-
-            //see if there is opacity here
-            if (template_p[(x*4)+3] > 0){
-
-                //set to 1 if white
-                if (template_p[x*template_img.channels()] > 150){
-                    template_p[x*template_img.channels()] = 1;
-                }
-                    //else set to -1
-                else {
-                    template_p[x*template_img.channels()] = -1;
-                }
-            }
-                //set to 0 when no opacity is present
-            else {
-                template_p[x * template_img.channels()] = 0;
-            }
-        }
-    }
+    YTemplateMatcher::createTemplateMask(template_img);
 }
 
-//TODO sort repeat
-
-//function to normalise templates so that sum of intensity = 0
 extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderCamTest_createTemplateMask(
@@ -708,31 +736,17 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderCamTest_createTemplateMask(
         jlong template_ptr){
 
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
-    int32_t * template_p;
+    YTemplateMatcher::createTemplateMask(template_img);
+}
 
-    //get sum of template
-    for (int y = 0; y < template_img.rows; ++y) {
-        template_p = template_img.ptr<int32_t>(y);
-        for (int x = 0; x < template_img.cols; ++x) {
+extern "C" JNIEXPORT void
+JNICALL
+Java_com_example_garyrendle_mis_1cpp_1test_SignFinderBackground_createTemplateMask(
+        JNIEnv* env, jobject,
+        jlong template_ptr){
 
-            //see if there is opacity here
-            if (template_p[(x*4)+3] > 0){
-
-                //set to 1 if white
-                if (template_p[x*template_img.channels()] > 150){
-                    template_p[x*template_img.channels()] = 1;
-                }
-                    //else set to -1
-                else {
-                    template_p[x*template_img.channels()] = -1;
-                }
-            }
-                //set to 0 when no opacity is present
-            else {
-                template_p[x * template_img.channels()] = 0;
-            }
-        }
-    }
+    cv::Mat& template_img = *(cv::Mat *)template_ptr;
+    YTemplateMatcher::createTemplateMask(template_img);
 }
 
 
