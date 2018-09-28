@@ -3,12 +3,13 @@ package com.example.garyrendle.mis_cpp_test;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
+import org.opencv.android.CameraBridgeViewBase;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import static android.widget.Toast.LENGTH_SHORT;
 
 
@@ -16,14 +17,14 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
 
+    private SignFinderBackground signFinderBG;
+
 
     // Used to load the 'native-lib' library on application startup.
     static {
         System.loadLibrary("native-lib");
         System.loadLibrary("sign-finder-lib");
     }
-
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
         }).execute(url);
 
         // Button to call Sign Finder Activity
-        Button signFinderPhotoTest = (Button)findViewById(R.id.signFinder);
+        Button signFinderPhotoTest = findViewById(R.id.signFinder);
         signFinderPhotoTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -58,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Button to call Sign Finder Activity
-        Button signFinderCamTest = (Button)findViewById(R.id.signFinderCamTest);
+        Button signFinderCamTest = findViewById(R.id.signFinderCamTest);
         signFinderCamTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,6 +67,32 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(i);
             }
         });
+
+
+        //creates sign finder that processes camera images in a background task
+        signFinderBG = new SignFinderBackground(getApplicationContext());
+        signFinderBG.setListener(new SignFinderBackground.SignFinderBackgroundListener() {
+            @Override
+            public void signFound(int speed) {
+                Log.d(TAG, "main activity received callback from sign finder: " + speed);
+            }
+        });
+
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        CameraBridgeViewBase cb = findViewById(R.id.dummy_camera_view);
+        signFinderBG.startFindingSigns(cb);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        signFinderBG.stopFindingSigns();
+    }
+
 
 }
