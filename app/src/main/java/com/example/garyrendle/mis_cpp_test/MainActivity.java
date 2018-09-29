@@ -12,6 +12,9 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import org.opencv.android.CameraBridgeViewBase;
+
 import java.util.Locale;
 
 import static android.widget.Toast.LENGTH_SHORT;
