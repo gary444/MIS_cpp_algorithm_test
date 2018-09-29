@@ -18,7 +18,7 @@ import java.net.URL;
 //ref from: https://androidkennel.org/android-networking-tutorial-with-asynctask/
 public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
-    private static final String TAG = "GetContentTask";
+    //private static final String TAG = "GetContentTask";
 
     private MainActivity activity;
 
