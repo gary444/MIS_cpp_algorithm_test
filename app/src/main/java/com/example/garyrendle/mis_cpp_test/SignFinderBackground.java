@@ -30,6 +30,8 @@ public class SignFinderBackground implements CameraBridgeViewBase.CvCameraViewLi
     private Context context;
 
     private Mat template_img;
+//    private Mat[] number_templates = new Mat[3];
+//    private long[] tempobjadr = new long[number_templates.length]; //array of addresses to send to native call
     private Mat test_img;
     private int frameCount = 0;
     private int img_index = 1;
@@ -101,7 +103,10 @@ public class SignFinderBackground implements CameraBridgeViewBase.CvCameraViewLi
 
         Mat sf_input = test_img.clone();
 
+
+
         //native call
+//        int response_val = 0;
         int response_val = findSigns(sf_input.getNativeObjAddr(), template_img.getNativeObjAddr());
 
         Log.d(TAG, "onCameraFrame: response received = " + response_val);
@@ -148,12 +153,27 @@ public class SignFinderBackground implements CameraBridgeViewBase.CvCameraViewLi
     }
     //load template image(s) for matching
     private void load_template(){
-        int res = R.drawable.template_empty;
+
+
+
+
         try {
+//            int[] num_temp_names = {R.drawable.template30, R.drawable.template40, R.drawable.template60};
+//            //load number signs
+//            for (int i = 0; i < num_temp_names.length; i++) {
+//                number_templates[i] = Utils.loadResource(context, num_temp_names[i]);
+////                number_templates[i].convertTo(number_templates[i], CV_32SC4);
+//                Imgproc.cvtColor(number_templates[i], number_templates[i], Imgproc.COLOR_RGB2GRAY);
+//
+//                tempobjadr[i]=  number_templates[i].getNativeObjAddr();
+//            }
+
+
+            int res = R.drawable.template_empty;
+
             //Loading Image to Mat object
             template_img = Utils.loadResource(context,res);
             template_img.convertTo(template_img, CV_32SC4); //covert to be able to hold negative values
-
             createTemplateMask(template_img.getNativeObjAddr());
 
             Log.d(TAG, "load_templates: template type: = " + template_img.type());

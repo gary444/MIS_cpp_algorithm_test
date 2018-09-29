@@ -5,17 +5,14 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.WindowManager;
-import android.widget.Toast;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.IOException;
@@ -36,40 +33,40 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
     private int img_index = 1;
     private int frameCount = 0;
 
-    private Mat[] templates = new Mat[4];
+    private Mat template_img;
+    private Mat[] number_templates = new Mat[7];
+    private long[] tempobjadr = new long[number_templates.length]; //array of addresses to send to native call
+
 
     //load template image(s) for matching
     private void load_templates(){
-        for (int i = 0; i < templates.length; i++){
-            int res = 0;
-            switch (i) {
-                case 0: res = R.drawable.template30;
-                    break;
-                case 1: res = R.drawable.template40;
-                    break;
-                case 2: res = R.drawable.template60;
-                    break;
-                case 3: res = R.drawable.template_empty;
-                    break;
-                default:break;
+        try {
+            //Load main template
+            template_img = Utils.loadResource(this,R.drawable.template_empty);
+            template_img.convertTo(template_img, CV_32SC4); //covert to be able to hold negative values
+
+            createTemplateMask(template_img.getNativeObjAddr());
+//                normaliseTemplate(template_img.getNativeObjAddr());
+//                Imgproc.cvtColor(template_img, template_img, Imgproc.COLOR_RGB2GRAY);
+            Log.d(TAG, "load_templates: template type: = " + template_img.type());
+
+            //load number signs
+            int[] num_temp_names = {R.drawable.num10, R.drawable.num20, R.drawable.num30,R.drawable.num40,
+                    R.drawable.num50,R.drawable.num60,R.drawable.num80};
+            for (int i = 0; i < num_temp_names.length; i++) {
+                number_templates[i] = Utils.loadResource(this, num_temp_names[i]);
+                number_templates[i].convertTo(number_templates[i], CV_32SC4);
+                createTemplateMask(number_templates[i].getNativeObjAddr());
+
+//                Imgproc.cvtColor(number_templates[i], number_templates[i], Imgproc.COLOR_RGBA2GRAY);
+
+                tempobjadr[i] =  number_templates[i].getNativeObjAddr();
+
+                Log.d(TAG, "load_templates: number template type: = " + number_templates[i].type());
             }
 
-            try {
-                //Loading Image to Mat object
-                templates[i] = Utils.loadResource(this,res);
-                templates[i].convertTo(templates[i], CV_32SC4); //covert to be able to hold negative values
-
-                createTemplateMask(templates[i].getNativeObjAddr());
-
-//                normaliseTemplate(templates[i].getNativeObjAddr());
-//                Log.d(TAG, "load_templates: normalised template sum = " + Core.sumElems(templates[i]));
-//                Imgproc.cvtColor(templates[i], templates[i], Imgproc.COLOR_RGB2GRAY);
-
-                Log.d(TAG, "load_templates: template type: = " + templates[i].type());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -130,7 +127,7 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_sign_finder);
-        cameraBridgeViewBase = (CameraBridgeViewBase) findViewById(R.id.camera_view);
+        cameraBridgeViewBase = findViewById(R.id.camera_view);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
         cameraBridgeViewBase.setCvCameraViewListener(this);
     }
@@ -170,7 +167,7 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
         signResponse = test_img.clone();
 
         //native call
-        findSigns(signResponse.getNativeObjAddr(), templates[3].getNativeObjAddr());
+        findSigns(signResponse.getNativeObjAddr(), template_img.getNativeObjAddr(), tempobjadr);
 
         frameCount++;
         if (frameCount > 20){
@@ -181,9 +178,9 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
         return signResponse;
     }
 
-    private native void findSigns(long matGrey, long template_img);
+    private native void findSigns(long matGrey, long template_img, long[] number_templates);
 
-    public native void normaliseTemplate(long template_img);
+//    public native void normaliseTemplate(long template_img);
 
     public native void createTemplateMask(long template_img);
 }
