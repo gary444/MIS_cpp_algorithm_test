@@ -23,7 +23,7 @@ import static org.opencv.core.CvType.CV_32SC4;
 public class SignFinderCamTest extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
 
-    private static final String TAG = "SignFinderPhotoTest";
+    private static final String TAG = "SignFinderCamTest";
     private CameraBridgeViewBase cameraBridgeViewBase;
 
 

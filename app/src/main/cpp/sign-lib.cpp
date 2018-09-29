@@ -9,10 +9,13 @@
 
 #include <android/log.h>
 
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
+
+
+//  __android_log_print(ANDROID_LOG_DEBUG, "display ROIs", "template size: %dx%d, type = %d", number_templates_ref[i].rows, number_templates_ref[i].cols, number_templates_ref[i].type());
+
 
 
 class YTemplateMatcher {
@@ -20,7 +23,9 @@ class YTemplateMatcher {
 public:
 
     //finds signs, using many other functions below
-    static int findSigns(cv::Mat &input, cv::Mat& template_img){
+    static int findSigns(cv::Mat &input, cv::Mat& template_img, std::vector<cv::Mat> *number_template = NULL){
+
+        int speed = -1;
 
         //downsampling method
         cv::Mat downsampled_img = input;
@@ -33,19 +38,36 @@ public:
         std::vector<int> scores;
         std::vector<cv::Rect> best_match = matchSigns2(input, rects, template_img, scores);
 
+        //determine which sign is best described by the best match roi - if templates given
+        if (number_template != NULL && best_match.size() > 0){
+
+            cv::Mat roi(input, best_match[best_match.size()-1]);
+            cv::resize(roi, roi, cv::Size(100,100));
+
+            //TODO find way of recognising number
+//            speed = find_speed_on_sign_static_match(roi, number_template);
+//            speed = findSpeedOnSign_template_match(roi, number_template);
+
+        }
+
 //    displayDownsampledImg(&input, downsampled_img);
 //    drawRects(input, rects);
 //    drawRect(input, best_match);
 
-        display_rois(input,best_match, template_img);
+        display_rois(input, best_match, template_img, number_template);
 
-        int rtn_score = -1;
-        if (scores.size() > 0){
-            rtn_score= scores[scores.size()-1];
-        }
+//        int rtn_score = -1;
+//        if (scores.size() > 0){
+//            rtn_score= scores[scores.size()-1];
+//        }
 
-        return rtn_score;
+        return speed;
     }
+//    //finds signs, using many other functions below
+//    static int findSigns(cv::Mat &input, cv::Mat& template_img, std::vector<cv::Mat> &number_templates){
+//
+//
+//    }
 
     //turns template image into a mask, where
     // white = 1, black = -1, transparent = 0
@@ -77,10 +99,33 @@ public:
         }
     }
 
+    static void normalise_template(cv::Mat& template_img){
+
+        int32_t * template_p;
+
+        //get sum of template
+        long int template_sum = 0;
+        long int num_px = 0;
+        for (int y = 0; y < template_img.rows; ++y) {
+            template_p = template_img.ptr<int32_t>(y);
+            for (int x = 0; x < template_img.cols; ++x) {
+                //see if there is opacity here
+                if (template_p[(x*4)+3] > 0){
+                    num_px++;
+                    //accumulate intensity
+                    template_sum += template_p[x*4];
+                }
+            }
+        }
+        long int mean_intensity = template_sum / num_px;
+        //subtract mean element wise
+        template_img = template_img - cv::Scalar(mean_intensity, mean_intensity, mean_intensity, 0);
+    }
+
+
 private:
 
     //iterative downsampling with pyramid function
-    //TODO - can this be done directly without downsampling iteratively?
     static void downsample(cv::Mat* input, cv::Mat& output, int iterations){
         cv::Mat temp, downsampled_img;
         temp = *input;
@@ -523,12 +568,13 @@ private:
             std::vector<long int>::iterator min = std::min_element(std::begin(roi_scores), std::end(roi_scores));
             long int min_index = std::distance(std::begin(roi_scores), min);
 
+
+
 //            scores.push_back((int)roi_scores[min_index]);
 
-            if (roi_scores[min_index] > 0){
-
+//            if (roi_scores[min_index] > 0){
                 rtn_rects.push_back(rois[min_index]);
-            }
+//            }
 
             roi_scores[min_index] = LONG_MAX;
 //            rtn_rects[i] = rois[min_index];
@@ -582,11 +628,15 @@ private:
     }
 
     //prints all rois to screen (not checking length of rects vector atm)
-    static void display_rois(cv::Mat &input, std::vector<cv::Rect> rects, cv::Mat& template_img){
+    static void display_rois(cv::Mat &input,
+                             std::vector<cv::Rect> rects,
+                             cv::Mat& template_img,
+                             std::vector<cv::Mat> *number_template = NULL){
 
         cv::Mat output (input.rows, input.cols, input.type());
         const int ROIS_IN_ROW = 10;
         uchar* write;
+        uchar* read;
 
         //write rois to output image
         for (int i = 0; i < rects.size(); ++i) {
@@ -602,7 +652,7 @@ private:
             int start_y = row * 120;
 
             //write to output
-            uchar* read;
+
 
             //write roi to output
             for (int y = 0; y < roi_size; ++y) {
@@ -615,46 +665,200 @@ private:
             }
         }
 
-        //write to output
-        int32_t * read;
 
-        int tmp_start_x = 0;
+        //write template to output
+//        int32_t * read;
+//
+//        int tmp_start_x = 0;
+//
+//        for (int y = 0; y < template_img.rows; ++y) {
+//            read = template_img.ptr<int32_t>(y);
+//
+//            write = output.ptr<uchar>(tmp_start_y + y);
+//            for (int x = 0; x < template_img.cols; ++x) {
+//                int32_t offset = 0;
+//                int32_t write_val = read[x * template_img.channels()] + offset;
+//                write_val = std::min(write_val, 255);
+//                write_val = std::max(write_val, 0);
+//                write[tmp_start_x + x] = (uchar)write_val;
+//            }
+//        }
+
+
         int tmp_start_y = 800;
 
-        //write roi to output
-        for (int y = 0; y < template_img.rows; ++y) {
-            read = template_img.ptr<int32_t>(y);
+//        //display number templates - from image files
+//        std::vector<cv::Mat>& number_templates_ref = *number_template;
+//        if (number_template != NULL){
+//            int offset = 120;
+//            for (int i = 0; i < number_templates_ref.size(); ++i) {
+//                //output type and size
+//
+//                for (int y = 0; y < number_templates_ref[i].rows; ++y) {
+//                    read = number_templates_ref[i].ptr<uchar>(y);
+//                    write = output.ptr<uchar>(tmp_start_y + y);
+//                    for (int x = 0; x < number_templates_ref[i].cols; ++x) {
+//                        write[x + (i*offset)] = read[x * number_templates_ref[i].channels()];
+//                    }
+//                }
+//            }
+//        }
 
-            write = output.ptr<uchar>(tmp_start_y + y);
-            for (int x = 0; x < template_img.cols; ++x) {
-                int32_t offset = 0;
-                int32_t write_val = read[x * template_img.channels()] + offset;
-                write_val = std::min(write_val, 255);
-                write_val = std::max(write_val, 0);
-                write[tmp_start_x + x] = (uchar)write_val;
+        //display number masks
+        std::vector<cv::Mat>& number_templates_ref = *number_template;
+        if (number_template != NULL){
+            int offset = 120;
+            int32_t *read_i;
+            for (int i = 0; i < number_templates_ref.size(); ++i) {
+                for (int y = 0; y < number_templates_ref[i].rows; ++y) {
+                    read_i = number_templates_ref[i].ptr<int32_t>(y);
+                    write = output.ptr<uchar>(tmp_start_y + y);
+                    for (int x = 0; x < number_templates_ref[i].cols; ++x) {
+                        int32_t color = read_i[x * number_templates_ref[i].channels()];
+                        if (color == 1){
+                            color = 255;
+                        }
+                        else {
+                            color = 0;
+                        }
+                        write[x + (i*offset)] = (uchar)color;
+                    }
+                }
             }
         }
 
         input = output.clone();
     }
 
+    //template type = 28, input type = 0
+    static int find_speed_on_sign_static_match(cv::Mat &input, std::vector<cv::Mat> *number_templates){
+//        int speed = 0;
+
+        std::vector<cv::Mat>& number_templates_ref = *number_templates;
+
+        //check dimensions of input mat/template
+        CV_Assert(input.rows == number_templates_ref[0].rows && input.cols == number_templates_ref[0].cols);
+
+        //simple mask system
+        uchar* read_input;
+        int32_t* read_templ;
+        int bestMatch = 0;
+        int bestMatchId = 0;
+        for (int i = 0; i < number_templates_ref.size(); ++i) {
+            int response = 0;
+            for (int y = 0; y < input.rows; ++y) {
+                read_input = input.ptr<uchar>(y);
+                read_templ = number_templates_ref[i].ptr<int32_t>(y);
+                for (int x = 0; x < input.cols; ++x) {
+                    response += read_input[x] * read_templ[x];
+                }
+            }
+            if (response > bestMatch){
+                bestMatch = response;
+                bestMatchId = i;
+            }
+              __android_log_print(ANDROID_LOG_DEBUG, "find speed", "template id: %d, score = %d", i,response);
+        }
+
+        return bestMatchId;
+    }
+
+    //uses a template matching approach to move each template across input
+    //to find number with best match
+    static int findSpeedOnSign_template_match(cv::Mat &input, std::vector<cv::Mat> *number_templates){
+        int speed = 0;
+
+        std::vector<cv::Mat>& number_templates_ref = *number_templates;
+        std::vector<int> num_scores (number_templates_ref.size());
+
+        int bestMatch = 0, bestMatchId = 0;
+
+        for (int i = 0; i < number_templates_ref.size(); ++i) {
+            num_scores[i] = match_number_template_maskwise(input, number_templates_ref[i]);
+
+            if (num_scores[i] > bestMatch){
+                bestMatchId = i;
+            }
+
+            __android_log_print(ANDROID_LOG_DEBUG, "find speed tm", "template id: %d, score = %d", i,num_scores[i]);
+        }
+        return num_scores[bestMatchId];
+    }
+
+    //number template matching
+    //template type = 28, input type = 0
+    static int match_number_template_maskwise(cv::Mat &input, cv::Mat &num_template){
+
+        cv::Mat result(input.rows - num_template.rows + 1,
+                        input.cols - num_template.cols + 1,
+                            CV_32SC1);
+
+//        __android_log_print(ANDROID_LOG_DEBUG, "match_number_template_maskwise",
+//                            "input size = %dx%d, template size = %dx%d, result size = %dx%d, ",
+//                            input.rows, input.cols, num_template.rows, num_template.cols, result.rows, result.cols  );
 
 
-private:
+        //match template at each possible step and record results in result mat
+        for (int y = 0; y < result.rows; ++y) {
+            for (int x = 0; x < result.cols; ++x) {
+
+                int32_t* result_write = result.ptr<int32_t>(y);
+                int32_t response = 0;
+
+                //calculate response
+                for (int y_read = 0; y_read < num_template.rows; ++y_read) {
+
+                    uchar* read_input = input.ptr<uchar>(y + y_read);
+                    int32_t* read_template = num_template.ptr<int32_t>(y + y_read);
+
+                    for (int x_read = 0; x_read < num_template.cols; ++x_read) {
+
+                         response += (int)read_input[x+x_read] * (int)read_template[(x+x_read)*num_template.channels()];
+                    }
+                }
+                result_write[x] = response;
+            }
+        }
+
+        double min, max;
+        cv::minMaxLoc(result, &min, &max);
+
+        return (int) max;
+    }
 
 };
 
+//sign finder calls -------------------------------
 
 extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_findSigns(
         JNIEnv* env, jobject,
         jlong input_ptr,
-        jlong template_ptr){
+        jlong template_ptr,
+        jlongArray number_templates_arr){
 
     cv::Mat& input = *(cv::Mat *) input_ptr;
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
-    YTemplateMatcher::findSigns(input, template_img);
+
+    //ref: stackoverflow.com/questions/20193039/how-to-pass-a-arraylistmat-from-java-to-native-sidendk-in-opencv-for-android
+    std::vector<cv::Mat> number_templates;
+    jsize a_len = env->GetArrayLength(number_templates_arr);
+    jlong *traindata = env->GetLongArrayElements(number_templates_arr,0);
+
+    for(int k=0;k<a_len;k++)
+    {
+        cv::Mat & newimage=*(cv::Mat*)traindata[k];
+        number_templates.push_back(newimage);
+
+    }
+
+
+
+    YTemplateMatcher::findSigns(input, template_img, &number_templates);
+
+    env->ReleaseLongArrayElements(number_templates_arr,traindata,0);
+
 }
 
 //TODO sort repeat
@@ -686,7 +890,7 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderBackground_findSigns(
 }
 
 
-//function to normalise templates so that sum of intensity = 0
+//function to normalise templates so that sum of intensity = 0------------------------
 extern "C" JNIEXPORT void
 JNICALL
 Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_normaliseTemplate(
@@ -694,27 +898,7 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_normaliseTemplate
         jlong template_ptr){
 
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
-
-    int32_t * template_p;
-
-    //get sum of template
-    long int template_sum = 0;
-    long int num_px = 0;
-    for (int y = 0; y < template_img.rows; ++y) {
-        template_p = template_img.ptr<int32_t>(y);
-        for (int x = 0; x < template_img.cols; ++x) {
-            //see if there is opacity here
-            if (template_p[(x*4)+3] > 0){
-                num_px++;
-                //accumulate intensity
-                template_sum += template_p[x*4];
-            }
-        }
-    }
-    long int mean_intensity = template_sum / num_px;
-    //subtract mean element wise
-    template_img = template_img - cv::Scalar(mean_intensity, mean_intensity, mean_intensity, 0);
-
+    YTemplateMatcher::normalise_template(template_img);
 }
 
 //to create template mask------------------------
