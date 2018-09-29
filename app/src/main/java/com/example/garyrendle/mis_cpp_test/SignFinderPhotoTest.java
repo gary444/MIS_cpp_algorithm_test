@@ -62,9 +62,7 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
                 createTemplateMask(templates[i].getNativeObjAddr());
 
 //                normaliseTemplate(templates[i].getNativeObjAddr());
-
 //                Log.d(TAG, "load_templates: normalised template sum = " + Core.sumElems(templates[i]));
-
 //                Imgproc.cvtColor(templates[i], templates[i], Imgproc.COLOR_RGB2GRAY);
 
                 Log.d(TAG, "load_templates: template type: = " + templates[i].type());
@@ -169,7 +167,6 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
-//        signResponse = inputFrame.gray();
         signResponse = test_img.clone();
 
         //native call
@@ -184,7 +181,7 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
         return signResponse;
     }
 
-    public native void findSigns(long matGrey, long template_img);
+    private native void findSigns(long matGrey, long template_img);
 
     public native void normaliseTemplate(long template_img);
 

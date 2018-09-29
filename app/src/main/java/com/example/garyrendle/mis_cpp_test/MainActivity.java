@@ -9,11 +9,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import java.util.Locale;
 
 import static android.widget.Toast.LENGTH_SHORT;
@@ -34,6 +32,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private ImageView ivSign;
     private TextView tvMaxSpeed;
     private TextView tvCurrentSpeed;
+
+    private SignFinderBackground signFinderBG;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -67,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
 
         // Button to call Sign Finder Activity
-        Button signFinderPhotoTest = (Button)findViewById(R.id.signFinder);
+        Button signFinderPhotoTest = findViewById(R.id.signFinder);
         signFinderPhotoTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -77,7 +77,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         });
 
         // Button to call Sign Finder Activity
-        Button signFinderCamTest = (Button)findViewById(R.id.signFinderCamTest);
+        Button signFinderCamTest = findViewById(R.id.signFinderCamTest);
         signFinderCamTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -85,9 +85,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 startActivity(i);
             }
         });
+
+
+        //creates sign finder that processes camera images in a background task
+        signFinderBG = new SignFinderBackground(getApplicationContext());
+        signFinderBG.setListener(new SignFinderBackground.SignFinderBackgroundListener() {
+            @Override
+            public void signFound(int speed) {
+                Log.d(TAG, "main activity received callback from sign finder: " + speed);
+            }
+        });
+
     }
-
-
 
     @Override
     public void onLocationChanged(Location location) {
@@ -197,5 +206,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             Log.d("Speech", "Success!");
             engine.setLanguage(Locale.UK);
         }
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        CameraBridgeViewBase cb = findViewById(R.id.dummy_camera_view);
+        signFinderBG.startFindingSigns(cb);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        signFinderBG.stopFindingSigns();
     }
 }
