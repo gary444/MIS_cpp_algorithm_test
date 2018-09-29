@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private TextView tvCurrentSpeed;
 
     private SignFinderBackground signFinderBG;
+    private GetLocation getloc;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -60,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         engine = new TextToSpeech(this, this);
 
         //get current location
-        GetLocation getloc = new GetLocation(this,mLocationPermissionGranted );
+        getloc = new GetLocation(this,mLocationPermissionGranted );
         mLocationPermissionGranted = getloc.getLocationPermission();
         Log.d("TAG", "PER1: " + mLocationPermissionGranted);
 
@@ -222,5 +223,21 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         super.onPause();
 
         signFinderBG.stopFindingSigns();
+    }
+
+    @Override
+    protected void onDestroy() {
+        
+        getloc.stopLocationUpdates();
+
+        //Close the Text to Speech Library
+        if(engine != null) {
+
+            engine.stop();
+            engine.shutdown();
+            Log.d(TAG, "TTS Destroyed");
+        }
+
+        super.onDestroy();
     }
 }

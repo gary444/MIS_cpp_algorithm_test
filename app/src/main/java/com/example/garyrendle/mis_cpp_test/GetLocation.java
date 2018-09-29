@@ -42,7 +42,8 @@ public class GetLocation  {
                 == PackageManager.PERMISSION_GRANTED) {
             return true;
         } else {
-            ActivityCompat.requestPermissions((Activity) c.getApplicationContext(),
+
+            ActivityCompat.requestPermissions((Activity)c,
                     new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                     PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
         }
@@ -63,7 +64,10 @@ public class GetLocation  {
     }
 
 
-
+    public void stopLocationUpdates(){
+        LocationManager locationManager = (LocationManager) c.getSystemService(LOCATION_SERVICE);
+        locationManager.removeUpdates((LocationListener) c);
+    }
 
 
 
