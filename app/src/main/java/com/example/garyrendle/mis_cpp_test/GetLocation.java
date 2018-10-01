@@ -23,8 +23,7 @@ public class GetLocation  {
 
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private static final float MIN_UPDATE_DIST = 1;
-    private static final long MIN_UPDATE_TIME = 3000;
-
+    private static final long MIN_UPDATE_TIME = 10000;
 
 
     Context c;
