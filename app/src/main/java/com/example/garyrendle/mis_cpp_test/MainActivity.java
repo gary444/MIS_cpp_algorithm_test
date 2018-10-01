@@ -28,9 +28,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private int maxSpeed;
     private GetContentTask asyncTask;
     private String url;
-    private TextToSpeech t1;
     public boolean mLocationPermissionGranted;
-    TextToSpeech engine;
+
+    private TextToSpeechManager speech_engine;
+    boolean speech_engine_ready = false;
+
     private double last_known_speed = 0.0;
     private ImageView ivSign;
     private TextView tvMaxSpeed;
@@ -40,9 +42,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     private GetLocation getloc;
 
 
-    // Used to load the 'native-lib' library on application startup.
+    // load c++ code library
     static {
-        System.loadLibrary("native-lib");
         System.loadLibrary("sign-finder-lib");
     }
 
@@ -58,7 +59,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         tvCurrentSpeed = findViewById(R.id.tvCurrentSpeed);
 
         //text to speech engine
-        engine = new TextToSpeech(this, this);
+        speech_engine = new TextToSpeechManager(this, this);
 
         //get current location
         getloc = new GetLocation(this,mLocationPermissionGranted );
@@ -67,10 +68,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         if(mLocationPermissionGranted)
             getloc.registerForLocationUpdates();
-        Log.d("TAG", "PER: " + mLocationPermissionGranted);
 
-
-        // Button to call Sign Finder Activity
+        // Button to call Sign Finder Photo Test Activity
         Button signFinderPhotoTest = findViewById(R.id.signFinder);
         signFinderPhotoTest.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -80,7 +79,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             }
         });
 
-        // Button to call Sign Finder Activity
+        // Button to call Sign Finder Cam Test Activity
         Button signFinderCamTest = findViewById(R.id.signFinderCamTest);
         signFinderCamTest.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -103,10 +102,10 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     }
 
     @Override
-    public void onLocationChanged(Location location) {
+    public void onLocationChanged(final Location location) {
         latitude = location.getLatitude();
         longitude = location.getLongitude();
-        double radius = 50.0;
+        double radius = 10.0;
         //url to request speed limit from a given location
         url = "https://overpass-api.de/api/interpreter?data=[out:json];" +
                 "way[maxspeed](around:" + radius + "," + latitude + "," + longitude + ");" +
@@ -120,43 +119,46 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 //If maxspeed is -100 -> error parsing json
                 //If maxspeed is -2 -> error calculating new value
                 maxSpeed = output;
+
+                //pronounce maxspeed
+                switch (maxSpeed){
+                    case 0:
+                        if (speech_engine_ready) {speech_engine.speechWelcome();};
+                        ivSign.setVisibility(View.INVISIBLE);
+                        tvMaxSpeed.setText("");
+                        break;
+                    case -2:
+                        //If maxspeed is -2 -> error calculating new value
+                        if (speech_engine_ready) {speech_engine.speechErrCalc();};
+                        ivSign.setVisibility(View.INVISIBLE);
+                        tvMaxSpeed.setText("");
+                        break;
+                    case -100:
+                        //If maxspeed is -100 -> error parsing json
+                        if (speech_engine_ready) {speech_engine.speechErrJSON();};
+                        ivSign.setVisibility(View.INVISIBLE);
+                        tvMaxSpeed.setText("");
+                    default:
+                        if (speech_engine_ready) {speech_engine.speech(last_known_speed, maxSpeed);};
+                        ivSign.setVisibility(View.VISIBLE);
+                        tvMaxSpeed.setText(String.format(Locale.UK, "%d", maxSpeed));
+                        break;
+                }
+
+                //get current speed
+                last_known_speed = toKmh(location.getSpeed());
+                tvCurrentSpeed.setText(String.format(Locale.UK,"%.1f KM/H", last_known_speed));
+
+                //
+                Log.d("TAG", "INFO: " + latitude + " " + longitude + " " + maxSpeed);
+//        Toast.makeText(this, "Location :" + latitude + " " +longitude
+//                + " " + maxSpeed + " " + String.format("%.1f", last_known_speed),
+//                Toast.LENGTH_LONG).show();
+
+
             }
-        }).execute(url);
+        }, this).execute(url);
 
-        //pronounce maxspeed
-        switch (maxSpeed){
-            case 0:
-                speechWelcome();
-                ivSign.setVisibility(View.INVISIBLE);
-                tvMaxSpeed.setText("");
-                break;
-            case -2:
-                //If maxspeed is -2 -> error calculating new value
-                speechErrCalc();
-                ivSign.setVisibility(View.INVISIBLE);
-                tvMaxSpeed.setText("");
-                break;
-            case -100:
-                //If maxspeed is -100 -> error parsing json
-                ivSign.setVisibility(View.INVISIBLE);
-                tvMaxSpeed.setText("");
-                speechErrJSON();
-            default:
-                ivSign.setVisibility(View.VISIBLE);
-                tvMaxSpeed.setText(String.format("%d", maxSpeed));
-                speech();
-                break;
-        }
-
-        //get current speed
-        last_known_speed = toKmh(location.getSpeed());
-        tvCurrentSpeed.setText(String.format("%.1f KM/H", last_known_speed));
-
-        //
-        Log.d("TAG", "INFO: " + latitude + " " + longitude + " " + maxSpeed);
-        Toast.makeText(this, "Location :" + latitude + " " +longitude
-                + " " + maxSpeed + " " + String.format("%.1f", last_known_speed),
-                Toast.LENGTH_LONG).show();
 
 
     }
@@ -181,36 +183,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         return in_metres_per_sec * 60 * 60 / 1000;
     }
 
-    // text to speech
-    private void speechWelcome() {
-        engine.speak("Initialization",
-                TextToSpeech.QUEUE_FLUSH, null, null);
-    }
 
-    private void speechErrCalc() {
-        engine.speak("No Speed Limit Detected",
-                TextToSpeech.QUEUE_FLUSH, null, null);
-    }
-
-    private void speechErrJSON() {
-        engine.speak("Error parsing Jason",
-                TextToSpeech.QUEUE_FLUSH, null, null);
-    }
-
-    private void speech() {
-        engine.speak("current" + String.format("%.1f", last_known_speed) + "maximum" + String.format("%d", maxSpeed),
-                TextToSpeech.QUEUE_FLUSH, null, null);
-    }
-    //initialize tts listener
+    //text to speech callback
     @Override
     public void onInit(int status) {
-        Log.d("TAG", "OnInit - Status ["+status+"]");
-
         if (status == TextToSpeech.SUCCESS) {
             Log.d("Speech", "Success!");
-            engine.setLanguage(Locale.UK);
+            speech_engine_ready = true;
         }
     }
+
+    //activity lifecycle callbacks-----------------------------------
     @Override
     protected void onResume() {
         super.onResume();
@@ -227,17 +210,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     protected void onDestroy() {
-        
+
         getloc.stopLocationUpdates();
-
-        //Close the Text to Speech Library
-        if(engine != null) {
-
-            engine.stop();
-            engine.shutdown();
-            Log.d(TAG, "TTS Destroyed");
-        }
-
+        speech_engine.destroy();
         super.onDestroy();
     }
 }

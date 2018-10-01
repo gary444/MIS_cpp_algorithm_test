@@ -1,5 +1,6 @@
 package com.example.garyrendle.mis_cpp_test;
 
+import android.app.Activity;
 import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.Toast;
@@ -18,17 +19,13 @@ import java.net.URL;
 //ref from: https://androidkennel.org/android-networking-tutorial-with-asynctask/
 public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
-    //private static final String TAG = "GetContentTask";
+    private static final String TAG = "GetContentTask";
 
-    private MainActivity activity;
+    private Activity activity;
 
     public GetContentTask(MainActivity activity){
         this.activity = activity;
     }
-
-
-
-
 
     @Override
     protected Integer doInBackground(String... strings) {
@@ -54,13 +51,10 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
             urlConnection.disconnect();
 //
-//            activity.runOnUiThread(new Runnable() {
-//                public void run() {
-//                    Toast.makeText(activity, "request success", Toast.LENGTH_SHORT).show();
-//                }
-//            });
+
 
             String JSON_string = builder.toString();
+            String road_name = "";
 
             //get max speed from JSON
             int maxspeed = -2;
@@ -70,8 +64,17 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
                 JSONObject e = elements.getJSONObject(0);
                 JSONObject tags = e.getJSONObject("tags");
                 String maxspeed_s = tags.getString("maxspeed");
+                road_name = tags.getString("name");
                 maxspeed = Integer.parseInt(maxspeed_s);
             }
+
+            final String r_name = road_name;
+
+            activity.runOnUiThread(new Runnable() {
+                public void run() {
+                    Toast.makeText(activity, "road name: " + r_name, Toast.LENGTH_SHORT).show();
+                }
+            });
 
             return maxspeed;
 
@@ -79,6 +82,7 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
             //print error
 
             final String err = "Error: " + e.getMessage();
+            Log.d(TAG, "doInBackground: " + err);
 
             //show toast message on ui thread
             //ref: https://stackoverflow.com/questions/3134683/android-toast-in-a-thread
@@ -99,8 +103,10 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
     public AsyncResponse delegate = null;
 
-    public GetContentTask(AsyncResponse delegate){
+    public GetContentTask(AsyncResponse delegate, Activity activity){
+
         this.delegate = delegate;
+        this.activity = activity;
     }
     @Override
     protected void onPostExecute(Integer input) {
