@@ -8,6 +8,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -17,35 +18,27 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity implements LocationListener, TextToSpeech.OnInitListener {
 
     private static final String TAG = "MainActivity";
-    private double latitude;
-    private double longitude;
     private int maxSpeed;
     private GetContentTask asyncTask;
-    private String url;
+    private GetLocation getloc;
     public boolean mLocationPermissionGranted;
 
     private TextToSpeechManager speech_engine;
     boolean speech_engine_ready = false;
 
     private double last_known_speed = 0.0;
+
     private ImageView ivSign;
     private TextView tvMaxSpeed;
     private TextView tvCurrentSpeed;
     private TextView tvCurrentStr;
 
-    // private SignFinderBackground signFinderBG;
-    private GetLocation getloc;
-
-
-    // load c++ code library
-    static {
-        System.loadLibrary("sign-finder-lib");
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         ivSign = findViewById(R.id.ivSignBackground);
         ivSign.setVisibility(View.INVISIBLE);
@@ -58,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         speech_engine = new TextToSpeechManager(this, this);
 
         //get current location
-        getloc = new GetLocation(this, mLocationPermissionGranted);
+        getloc = new GetLocation(this);
         mLocationPermissionGranted = getloc.getLocationPermission();
         Log.d("TAG", "PER1: " + mLocationPermissionGranted);
 
@@ -69,11 +62,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     public void onLocationChanged(final Location location) {
-        latitude = location.getLatitude();
-        longitude = location.getLongitude();
+        double latitude = location.getLatitude();
+        double longitude = location.getLongitude();
         double radius = 10.0;
         //url to request speed limit from a given location
-        url = "https://overpass-api.de/api/interpreter?data=[out:json];" +
+        String url = "https://overpass-api.de/api/interpreter?data=[out:json];" +
                 "way[maxspeed](around:" + radius + "," + latitude + "," + longitude + ");" +
                 "out%20tags;";
 
@@ -81,26 +74,19 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         last_known_speed = toKmh(location.getSpeed());
         tvCurrentSpeed.setText(String.format(Locale.UK, "%.1f KM/H", last_known_speed));
 
-
         //get the maxSpeed
         asyncTask = (GetContentTask) new GetContentTask(new GetContentTask.AsyncResponse() {
 
             @Override
             public void processFinish(RoadInfo output) {
-                Log.d("TAG", "onPostExecute: " + output);
-                //If maxspeed is -100 -> error parsing json
-                //If maxspeed is -2 -> error calculating new value
-                // maxSpeed = output;
 
-                //pronounce maxspeed
+                //process returned speed info
                 if (output.getMaxSpeed() == -2) {
                     //If maxspeed is -2 -> error calculating new value
-                    // if (speech_engine_ready) {speech_engine.speechErrCalc();};
                     ivSign.setVisibility(View.INVISIBLE);
                     tvMaxSpeed.setText("");
                 } else if (maxSpeed == -100) {
                     //If maxspeed is -100 -> error parsing json
-                    // if (speech_engine_ready) {speech_engine.speechErrJSON();};
                     ivSign.setVisibility(View.INVISIBLE);
                     tvMaxSpeed.setText("");
                 } else {
@@ -112,7 +98,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         if (speech_engine_ready) {
                             speech_engine.speechSpeedExceeded();
                         }
-                        ;
                         // sign is flashing/blinking
                         blinkSpeedSign();
                     } else {
@@ -120,12 +105,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                         tvMaxSpeed.setText(String.format(Locale.UK, "%d", maxSpeed));
 
                     }
-
-                    //if (speech_engine_ready) {speech_engine.speech(last_known_speed, maxSpeed);};
                 }
 
                 tvCurrentStr.setText(output.getRoadName());
-                Log.d("TAG", "INFO: " + latitude + " " + longitude + " " + maxSpeed);
 
             }
         }, this).execute(url);
@@ -133,9 +115,9 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     }
 
+    //flash speed sign on GUI
     private void blinkSpeedSign() {
         ivSign.setVisibility(View.VISIBLE);
-
 
         final Handler handler = new Handler();
         Runnable runnableCode = new Runnable() {
@@ -166,29 +148,19 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
         handler.post(runnableCode);
 
-
     }
 
     @Override
-    public void onStatusChanged(String s, int i, Bundle bundle) {
-
-    }
-
+    public void onStatusChanged(String s, int i, Bundle bundle) { }
     @Override
-    public void onProviderEnabled(String s) {
-
-    }
-
+    public void onProviderEnabled(String s) { }
     @Override
-    public void onProviderDisabled(String s) {
-
-    }
+    public void onProviderDisabled(String s) { }
 
     //helper - conversion function, m/s to km/h
     private float toKmh(float in_metres_per_sec) {
         return in_metres_per_sec * 60 * 60 / 1000;
     }
-
 
     //text to speech callback
     @Override
@@ -203,21 +175,18 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     @Override
     protected void onResume() {
         super.onResume();
-        //CameraBridgeViewBase cb = findViewById(R.id.dummy_camera_view);
-        //signFinderBG.startFindingSigns(cb);
+        if (mLocationPermissionGranted)
+            getloc.registerForLocationUpdates();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-
-        // signFinderBG.stopFindingSigns();
+        getloc.stopLocationUpdates();
     }
 
     @Override
     protected void onDestroy() {
-
-        getloc.stopLocationUpdates();
         speech_engine.destroy();
         super.onDestroy();
     }

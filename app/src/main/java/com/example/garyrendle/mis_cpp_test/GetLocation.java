@@ -25,13 +25,10 @@ public class GetLocation  {
     private static final float MIN_UPDATE_DIST = 1;
     private static final long MIN_UPDATE_TIME = 3000;
 
+    private Context c;
 
-    Context c;
-    boolean mLocationPermissionGranted;
-    public GetLocation(Context context, boolean mLocationPermissionGranted) {
+    GetLocation(Context context) {
         this.c = context;
-        this.mLocationPermissionGranted = mLocationPermissionGranted;
-
     }
 
     //location setup
@@ -61,13 +58,8 @@ public class GetLocation  {
             Log.e("TAG","Exception: " + e.getMessage());
         }
     }
-
-
     public void stopLocationUpdates(){
         LocationManager locationManager = (LocationManager) c.getSystemService(LOCATION_SERVICE);
         locationManager.removeUpdates((LocationListener) c);
     }
-
-
-
 }
