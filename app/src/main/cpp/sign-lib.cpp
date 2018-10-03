@@ -6,6 +6,8 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <stack>
+
 
 #include <android/log.h>
 
@@ -22,39 +24,46 @@ class YTemplateMatcher {
 
 public:
 
+
     //finds signs, using many other functions below
     static int findSigns(cv::Mat &input, cv::Mat& template_img, std::vector<cv::Mat> *number_template = NULL){
 
         int speed = -1;
 
+//        std::vector<cv::Rect> good_rects =
+
+        exclude_large_segments(input);
+
         //downsampling method
         cv::Mat downsampled_img = input;
 
-        downsample(&input, downsampled_img,4);
+        const int SCALE_POW = 2;
+        downsample(&input, downsampled_img, SCALE_POW);
         std::vector<cv::Rect> rects = get_areas_of_interest(downsampled_img);
 
-        binarise(input);
+//        binarise(input);
 
         std::vector<int> scores;
-        std::vector<cv::Rect> best_match = matchSigns2(input, rects, template_img, scores);
+//        std::vector<cv::Rect> best_match = matchSigns2(input, rects, template_img, scores);
 
-        //determine which sign is best described by the best match roi - if templates given
-        if (number_template != NULL && best_match.size() > 0){
+//        //determine which sign is best described by the best match roi - if templates given
+//        if (number_template != NULL && best_match.size() > 0){
+//
+//            cv::Mat roi(input, best_match[best_match.size()-1]);
+//            cv::resize(roi, roi, cv::Size(100,100));
+//
+//            //TODO find way of recognising number
+////            speed = find_speed_on_sign_static_match(roi, number_template);
+////            speed = findSpeedOnSign_template_match(roi, number_template);
+//
+//        }
 
-            cv::Mat roi(input, best_match[best_match.size()-1]);
-            cv::resize(roi, roi, cv::Size(100,100));
+    displayDownsampledImg(&input, downsampled_img);
+    drawRects(input, rects);
 
-            //TODO find way of recognising number
-//            speed = find_speed_on_sign_static_match(roi, number_template);
-//            speed = findSpeedOnSign_template_match(roi, number_template);
-
-        }
-
-//    displayDownsampledImg(&input, downsampled_img);
-//    drawRects(input, rects);
 //    drawRect(input, best_match);
 
-        display_rois(input, best_match, template_img, number_template);
+//        display_rois(input, best_match, template_img, number_template);
 
 //        int rtn_score = -1;
 //        if (scores.size() > 0){
@@ -124,6 +133,102 @@ public:
 
 
 private:
+
+    static std::vector<cv::Rect> exclude_large_segments(cv::Mat& input){
+
+        //smothing to reduce effect of noise
+        cv::Mat blurred;
+        cv::GaussianBlur(input, blurred, cv::Size(7,7), 2);
+
+        cv::Mat lap_result;
+        cv::Laplacian(blurred, lap_result, CV_8UC1, 3);
+        cv::Mat integral_img;
+        cv::integral(lap_result, integral_img);
+
+//        uchar avg_intensity = (uchar)integral_img.ptr<int>(integral_img.rows - 1)[integral_img.cols -1];
+
+//        D/display ROIs: quarter scores 13.29, 12.85, 8.76, 9.40
+//        D/display ROIs: quarter scores 13.69, 18.77, 8.75, 10.63
+
+        cv::Rect whole_image (0,0,input.cols, input.rows);
+
+        //subdivide the matrix recursively
+        std::vector<cv::Rect> good_rects;
+        std::stack<cv::Rect> r_stack;
+        r_stack.push(whole_image);
+
+        const float LOW_BOUND = 1.5f;
+        const float HIGH_BOUND = 50.f;
+        const int MIN_R_WIDTH = 70;
+
+        while (!r_stack.empty()){
+            cv::Rect this_rect = r_stack.top();
+            r_stack.pop();
+
+            int pxInRect = this_rect.width * this_rect.height;
+            int total_gradient = getValueInRect(integral_img, this_rect);
+            float avg_grad = (float)total_gradient / pxInRect;
+
+
+//            __android_log_print(ANDROID_LOG_DEBUG, "display ROIs", "avg_grad = %.2f", avg_grad);
+
+            //if inside bounds....
+            if (avg_grad > LOW_BOUND && avg_grad < HIGH_BOUND){
+
+
+                //check for minimum size
+                if (this_rect.width <= MIN_R_WIDTH){
+
+                    //add to list if it is
+                    good_rects.push_back(this_rect);
+                }
+                else {
+                    //add children to stack if not
+                    int x = this_rect.x; int y = this_rect.y;
+                    int h = this_rect.height; int w = this_rect.width;
+                    r_stack.push(cv::Rect(x, y , w/2, h/2));
+                    r_stack.push(cv::Rect(x + w/2, y , w/2, h/2));
+                    r_stack.push(cv::Rect(x, y + h/2 , w/2, h/2));
+                    r_stack.push(cv::Rect(x + w/2, y + h/2, w/2, h/2));
+                }
+            }
+            else {
+                blackout(input, this_rect);
+            }
+
+
+        }
+
+        return good_rects;
+    }
+
+    //switch to 0
+    static void blackout(cv::Mat& input, cv::Rect rect){
+        uchar* write;
+        for (int y = 0; y < rect.height; ++y) {
+            write = input.ptr<uchar>(y + rect.y);
+            for (int x = 0; x < rect.width; ++x) {
+                write[x + rect.x] = 0;
+            }
+        }
+    }
+
+    //integ_img mat type = 4
+    static int getValueInRect(cv::Mat &integ_img, cv::Rect rect){
+
+        int* read;
+
+        read = integ_img.ptr<int>(rect.y);
+        int a = read[rect.x];
+        int b = read[rect.x + rect.width];
+
+        read = integ_img.ptr<int>(rect.y + rect.height);
+        int c = read[rect.x];
+        int d = read[rect.x + rect.width];
+
+        return (a + d - b - c);
+    }
+
 
     //iterative downsampling with pyramid function
     static void downsample(cv::Mat* input, cv::Mat& output, int iterations){
@@ -299,41 +404,46 @@ private:
             //iterate along the row and perform calculation at each column position to get response
             for (int x = 0; x < nCols; ++x) {
 
-                //collect response from all rows
-                int b_sum = 0, w_sum = 0;
-
-                //for each row
-                for (int t_rows = cornerSize; t_rows < (tempSize - cornerSize); ++t_rows) {
-                    //left side
-                    for (int px = 0; px < boxSize; ++px) { //for each col in row
-                        b_sum += t_ptrs[t_rows][x+px];//edge
-                        w_sum += (2 * t_ptrs[t_rows][x+boxSize+px]);//inside edge
-                        b_sum += t_ptrs[t_rows][x+(2*boxSize)+px];//centre
-                    }
-                    //right side
-                    for (int px = 0; px < boxSize; ++px){
-                        b_sum += t_ptrs[t_rows][(x+tempSize)-(1+px)];//edge
-                        w_sum += (2 * t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)]);//inside edge
-                        b_sum += t_ptrs[t_rows][(x+tempSize)-(1+(2*boxSize)+px)];//centre
-                    }
-
+                //ignore if corner is black
+                if (t_ptrs[0][x] == 0){
+                    write_p[x] = 0;
                 }
-                //for each column
-                for (int col = cornerSize; col < (tempSize-cornerSize); ++col) {
-                    //top
-                    for (int px = 0; px < boxSize; ++px) {
-                        b_sum += t_ptrs[px][x+col];//edge
-                        w_sum += (3 * t_ptrs[px+boxSize][x+col]);//inside edge
-                        b_sum += t_ptrs[px+(2*boxSize)][x+col];//centre
-                    }
-                    //bottom
-                    for (int px = 0; px < boxSize; ++px){
-                        b_sum += t_ptrs[tempSize-(1+px)][x+col];//edge
-                        w_sum += (3 * t_ptrs[tempSize-(1+px+boxSize)][x+col]);//inside edge
-                        b_sum += t_ptrs[tempSize-(1+px+(2*boxSize))][x+col];
-                    }
+                else {
+                    //collect response from all rows
+                    int b_sum = 0, w_sum = 0;
 
-                }
+                    //for each row
+                    for (int t_rows = cornerSize; t_rows < (tempSize - cornerSize); ++t_rows) {
+                        //left side
+                        for (int px = 0; px < boxSize; ++px) { //for each col in row
+                            b_sum += t_ptrs[t_rows][x+px];//edge
+                            w_sum += (2 * t_ptrs[t_rows][x+boxSize+px]);//inside edge
+                            b_sum += t_ptrs[t_rows][x+(2*boxSize)+px];//centre
+                        }
+                        //right side
+                        for (int px = 0; px < boxSize; ++px){
+                            b_sum += t_ptrs[t_rows][(x+tempSize)-(1+px)];//edge
+                            w_sum += (2 * t_ptrs[t_rows][(x+tempSize)-(1+px+boxSize)]);//inside edge
+                            b_sum += t_ptrs[t_rows][(x+tempSize)-(1+(2*boxSize)+px)];//centre
+                        }
+
+                    }
+                    //for each column
+                    for (int col = cornerSize; col < (tempSize-cornerSize); ++col) {
+                        //top
+                        for (int px = 0; px < boxSize; ++px) {
+                            b_sum += t_ptrs[px][x+col];//edge
+                            w_sum += (3 * t_ptrs[px+boxSize][x+col]);//inside edge
+                            b_sum += t_ptrs[px+(2*boxSize)][x+col];//centre
+                        }
+                        //bottom
+                        for (int px = 0; px < boxSize; ++px){
+                            b_sum += t_ptrs[tempSize-(1+px)][x+col];//edge
+                            w_sum += (3 * t_ptrs[tempSize-(1+px+boxSize)][x+col]);//inside edge
+                            b_sum += t_ptrs[tempSize-(1+px+(2*boxSize))][x+col];
+                        }
+
+                    }
 
 //                //corner subtractions
 //                for (int px_x = 1; px_x < cornerSize; ++px_x) {
@@ -348,12 +458,15 @@ private:
 //                    b_sum += t_ptrs[tempSize-1-px_y][x+(tempSize-1-px_x)];
 //                }
 
-                int total_diffs = w_sum - b_sum;
-                //normalise for number of comparisons
-                total_diffs = total_diffs / ((tempSize-(2*cornerSize))*4*boxSize);
-                total_diffs = std::max(total_diffs,0);
+                    int total_diffs = w_sum - b_sum;
+                    //normalise for number of comparisons
+                    total_diffs = total_diffs / ((tempSize-(2*cornerSize))*4*boxSize);
+                    total_diffs = std::max(total_diffs,0);
 
-                write_p[x] = (uchar)(total_diffs/10); // divide to fit into 8bit char
+                    write_p[x] = (uchar)(total_diffs/10); // divide to fit into 8bit char
+                }
+
+
             }
         }
 
@@ -390,7 +503,9 @@ private:
         }
 
         // search  mats for rois ===========================
-        const int scale = (int)std::pow(2, 4); //real px per downsampled px
+
+        const int SCALE_POW = 2;
+        const int scale = (int)std::pow(2, SCALE_POW); //real px per downsampled px
         const int NUM_RECTS = 40;
         std::vector<cv::Rect> return_rois;
         uchar* write_p;
@@ -841,23 +956,22 @@ Java_com_example_garyrendle_mis_1cpp_1test_SignFinderPhotoTest_findSigns(
     cv::Mat& input = *(cv::Mat *) input_ptr;
     cv::Mat& template_img = *(cv::Mat *)template_ptr;
 
+
+    YTemplateMatcher::findSigns(input, template_img);
+
     //ref: stackoverflow.com/questions/20193039/how-to-pass-a-arraylistmat-from-java-to-native-sidendk-in-opencv-for-android
-    std::vector<cv::Mat> number_templates;
-    jsize a_len = env->GetArrayLength(number_templates_arr);
-    jlong *traindata = env->GetLongArrayElements(number_templates_arr,0);
-
-    for(int k=0;k<a_len;k++)
-    {
-        cv::Mat & newimage=*(cv::Mat*)traindata[k];
-        number_templates.push_back(newimage);
-
-    }
-
-
-
-    YTemplateMatcher::findSigns(input, template_img, &number_templates);
-
-    env->ReleaseLongArrayElements(number_templates_arr,traindata,0);
+//    std::vector<cv::Mat> number_templates;
+//    jsize a_len = env->GetArrayLength(number_templates_arr);
+//    jlong *traindata = env->GetLongArrayElements(number_templates_arr,0);
+//
+//    for(int k=0;k<a_len;k++)
+//    {
+//        cv::Mat & newimage=*(cv::Mat*)traindata[k];
+//        number_templates.push_back(newimage);
+//
+//    }
+//    YTemplateMatcher::findSigns(input, template_img, &number_templates);
+//    env->ReleaseLongArrayElements(number_templates_arr,traindata,0);
 
 }
 

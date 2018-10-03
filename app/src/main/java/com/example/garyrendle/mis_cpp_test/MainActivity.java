@@ -189,8 +189,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             Log.d("Speech", "Success!");
-            speech_engine_ready = true;
+
+            //TODO uncomment
+//            speech_engine_ready = true;
         }
+        
     }
 
     //activity lifecycle callbacks-----------------------------------

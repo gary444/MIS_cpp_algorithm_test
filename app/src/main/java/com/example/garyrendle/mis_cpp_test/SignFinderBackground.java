@@ -106,8 +106,8 @@ public class SignFinderBackground implements CameraBridgeViewBase.CvCameraViewLi
 
 
         //native call
-//        int response_val = 0;
-        int response_val = findSigns(sf_input.getNativeObjAddr(), template_img.getNativeObjAddr());
+        int response_val = 0;
+//        int response_val = findSigns(sf_input.getNativeObjAddr(), template_img.getNativeObjAddr());
 
 //        Log.d(TAG, "onCameraFrame: response received = " + response_val);
 
@@ -185,6 +185,6 @@ public class SignFinderBackground implements CameraBridgeViewBase.CvCameraViewLi
 
 
     //native calls
-    public native int findSigns(long matGrey, long template_img);
+//    public native int findSigns(long matGrey, long template_img);
     public native void createTemplateMask(long template_img);
 }

@@ -170,7 +170,7 @@ public class SignFinderPhotoTest extends AppCompatActivity implements CameraBrid
         findSigns(signResponse.getNativeObjAddr(), template_img.getNativeObjAddr(), tempobjadr);
 
         frameCount++;
-        if (frameCount > 20){
+        if (frameCount > 10){
             frameCount = 0;
             test_img = load_test_image();
         }
