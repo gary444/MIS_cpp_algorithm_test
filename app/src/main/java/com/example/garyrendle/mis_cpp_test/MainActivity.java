@@ -3,6 +3,7 @@ package com.example.garyrendle.mis_cpp_test;
 import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
+import android.os.Handler;
 import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -16,6 +17,8 @@ import android.widget.Toast;
 import org.opencv.android.CameraBridgeViewBase;
 
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static android.widget.Toast.LENGTH_SHORT;
 
@@ -105,11 +108,16 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     public void onLocationChanged(final Location location) {
         latitude = location.getLatitude();
         longitude = location.getLongitude();
-        double radius = 10.0;
+        double radius = 100.0;
         //url to request speed limit from a given location
         url = "https://overpass-api.de/api/interpreter?data=[out:json];" +
                 "way[maxspeed](around:" + radius + "," + latitude + "," + longitude + ");" +
                 "out%20tags;";
+
+        //get current speed
+        last_known_speed = toKmh(location.getSpeed());
+        tvCurrentSpeed.setText(String.format(Locale.UK,"%.1f KM/H", last_known_speed));
+
         //get the maxSpeed
         asyncTask = (GetContentTask) new GetContentTask(new GetContentTask.AsyncResponse(){
 
@@ -118,36 +126,39 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
                 Log.d("TAG", "onPostExecute: " + output);
                 //If maxspeed is -100 -> error parsing json
                 //If maxspeed is -2 -> error calculating new value
-                maxSpeed = output;
+               // maxSpeed = output;
 
                 //pronounce maxspeed
-                switch (maxSpeed){
-                    case 0:
-                        if (speech_engine_ready) {speech_engine.speechWelcome();};
-                        ivSign.setVisibility(View.INVISIBLE);
-                        tvMaxSpeed.setText("");
-                        break;
-                    case -2:
+                if (output == 0){
+                    if (speech_engine_ready) {speech_engine.speechWelcome();};
+                    ivSign.setVisibility(View.INVISIBLE);
+                    tvMaxSpeed.setText("");
+                }else if (output == -2){
                         //If maxspeed is -2 -> error calculating new value
                         if (speech_engine_ready) {speech_engine.speechErrCalc();};
                         ivSign.setVisibility(View.INVISIBLE);
                         tvMaxSpeed.setText("");
-                        break;
-                    case -100:
+                }else if (maxSpeed == -100){
                         //If maxspeed is -100 -> error parsing json
                         if (speech_engine_ready) {speech_engine.speechErrJSON();};
                         ivSign.setVisibility(View.INVISIBLE);
                         tvMaxSpeed.setText("");
-                    default:
-                        if (speech_engine_ready) {speech_engine.speech(last_known_speed, maxSpeed);};
+                }else{
+                    //max allowed speed
+                    maxSpeed = output;
+
+                    if(maxSpeed < last_known_speed){
+                        //notification that max speed is exceeded
+                        if (speech_engine_ready) {speech_engine.speechSpeedExceeded();};
+                        // sign is flashing/blinking
+                        blinkSpeedSign();
+                    }else{
                         ivSign.setVisibility(View.VISIBLE);
                         tvMaxSpeed.setText(String.format(Locale.UK, "%d", maxSpeed));
-                        break;
-                }
+                    }
 
-                //get current speed
-                last_known_speed = toKmh(location.getSpeed());
-                tvCurrentSpeed.setText(String.format(Locale.UK,"%.1f KM/H", last_known_speed));
+                    //if (speech_engine_ready) {speech_engine.speech(last_known_speed, maxSpeed);};
+                }
 
                 //
                 Log.d("TAG", "INFO: " + latitude + " " + longitude + " " + maxSpeed);
@@ -158,6 +169,42 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
             }
         }, this).execute(url);
+
+
+
+    }
+
+    private void blinkSpeedSign() {
+        ivSign.setVisibility(View.VISIBLE);
+
+
+        final Handler handler = new Handler();
+        Runnable runnableCode = new Runnable() {
+            int counter = 0;
+            @Override
+            public void run() {
+                // Do something here on the main thread
+                Log.d("TAG", "Called on main thread: " + counter);
+
+                if(ivSign.getVisibility()==View.VISIBLE) {
+                    ivSign.setVisibility(View.INVISIBLE);
+                    tvMaxSpeed.setText(String.format(Locale.UK, "%d", maxSpeed));
+                }
+                else{
+                    ivSign.setVisibility(View.VISIBLE);
+                    tvMaxSpeed.setText("");
+                }
+
+                counter++;
+
+                if(counter<6){
+                    handler.postDelayed(this, 200);
+                }
+
+            }
+        };
+
+        handler.post(runnableCode);
 
 
 

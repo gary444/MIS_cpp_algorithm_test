@@ -47,4 +47,9 @@ public class TextToSpeechManager {
             engine.shutdown();
         }
     }
+
+    public void speechSpeedExceeded() {
+        engine.speak("Warning! speed limit exceeded",
+                TextToSpeech.QUEUE_FLUSH, null, null);
+    }
 }

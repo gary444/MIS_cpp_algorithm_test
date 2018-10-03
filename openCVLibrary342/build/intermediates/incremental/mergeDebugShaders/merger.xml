@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merger version="3"><dataSet config="main"><source path="/Users/garyrendle/Documents/5_PROGRAMMING/Android/MIS_cpp_test/openCVLibrary342/src/main/shaders"/></dataSet><dataSet config="debug"><source path="/Users/garyrendle/Documents/5_PROGRAMMING/Android/MIS_cpp_test/openCVLibrary342/src/debug/shaders"/></dataSet></merger>
+<merger version="3"><dataSet config="main"><source path="D:\Study\Weimar BU\MIS\MIS_cpp_algorithm_test\openCVLibrary342\src\main\shaders"/></dataSet><dataSet config="debug"><source path="D:\Study\Weimar BU\MIS\MIS_cpp_algorithm_test\openCVLibrary342\src\debug\shaders"/></dataSet></merger>
