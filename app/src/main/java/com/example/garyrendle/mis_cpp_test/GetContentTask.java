@@ -3,7 +3,6 @@ package com.example.garyrendle.mis_cpp_test;
 import android.app.Activity;
 import android.os.AsyncTask;
 import android.util.Log;
-import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -17,9 +16,10 @@ import java.net.URL;
 
 
 //ref from: https://androidkennel.org/android-networking-tutorial-with-asynctask/
-public class GetContentTask extends AsyncTask<String, Void, Integer> {
+public class GetContentTask extends AsyncTask<String, Void, RoadInfo> {
 
     private static final String TAG = "GetContentTask";
+    RoadInfo roadInfo;
 
     private Activity activity;
 
@@ -28,7 +28,7 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
     }
 
     @Override
-    protected Integer doInBackground(String... strings) {
+    protected RoadInfo doInBackground(String... strings) {
 
         // insert protocol prefix if missing
         String urlString = strings[0];
@@ -58,6 +58,8 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
 
             //get max speed from JSON
             int maxspeed = -2;
+
+
             JSONObject jsonObj = new JSONObject(JSON_string);
             JSONArray elements = jsonObj.getJSONArray("elements");
             if (elements.length() > 0){
@@ -68,15 +70,16 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
                 maxspeed = Integer.parseInt(maxspeed_s);
             }
 
-            final String r_name = road_name;
+//            final String r_name = road_name;
 
-            activity.runOnUiThread(new Runnable() {
-                public void run() {
-                    Toast.makeText(activity, "road name: " + r_name, Toast.LENGTH_SHORT).show();
-                }
-            });
 
-            return maxspeed;
+//            activity.runOnUiThread(new Runnable() {
+//                public void run() {
+//                    Toast.makeText(activity, "road name: " + r_name, Toast.LENGTH_SHORT).show();
+//                }
+//            });
+
+            return new RoadInfo(maxspeed, road_name);
 
         } catch (Exception  e) {
             //print error
@@ -92,13 +95,14 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
 //                }
 //            });
 
-
-            return -100;
+            roadInfo.setMaxSpeed(-100);
+            roadInfo.setRoadName("");
+            return roadInfo;
         }
     }
     //interface to send value back to main activity
     public interface AsyncResponse {
-        void processFinish(Integer output);
+        void processFinish(RoadInfo output);
     }
 
     public AsyncResponse delegate = null;
@@ -109,7 +113,7 @@ public class GetContentTask extends AsyncTask<String, Void, Integer> {
         this.activity = activity;
     }
     @Override
-    protected void onPostExecute(Integer input) {
+    protected void onPostExecute(RoadInfo input) {
         //"input" is sent to main activity
         delegate.processFinish(input);
         activity = null;
